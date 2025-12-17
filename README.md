@@ -8,6 +8,8 @@
 [![Tests](https://img.shields.io/badge/tests-291%20passing-brightgreen.svg)](#testing)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](#testing)
 
+> **Note:** This is an unofficial, community-maintained package and is not endorsed by or affiliated with Iyzico. For the official Iyzico Python SDK, please visit [iyzipay-python](https://github.com/iyzico/iyzipay-python).
+
 **django-iyzico** provides a complete Django-native integration for the Iyzico payment gateway, designed specifically for the Turkish market. Reduce integration time from days to hours with a secure, well-tested, production-ready solution.
 
 ## 🌟 Features
@@ -362,6 +364,273 @@ pytest tests/test_client.py -v
 - **291 passing** (21 skipped for optional DRF)
 - **95% coverage** for core modules
 - **83+ security-critical tests**
+
+## 🔧 Troubleshooting
+
+### Common Issues and Solutions
+
+#### 1. Payment Fails with "INVALID_SIGNATURE" Error
+
+**Problem:** Payment requests return an error about invalid signature.
+
+**Solution:**
+```python
+# Verify your API credentials are correct
+# settings.py
+IYZICO_API_KEY = 'your-correct-api-key'
+IYZICO_SECRET_KEY = 'your-correct-secret-key'
+IYZICO_BASE_URL = 'https://sandbox-api.iyzipay.com'  # For testing
+
+# Check that credentials match your Iyzico merchant panel
+# Production credentials differ from sandbox credentials
+```
+
+#### 2. Webhook Not Receiving Updates
+
+**Problem:** Payments succeed but webhooks don't trigger.
+
+**Solution:**
+```python
+# 1. Ensure webhook URL is publicly accessible
+IYZICO_WEBHOOK_SECRET = 'your-webhook-secret'
+
+# 2. Configure webhook URL in Iyzico merchant panel:
+# https://yourdomain.com/payments/webhook/
+
+# 3. Check webhook logs
+import logging
+logger = logging.getLogger('django_iyzico')
+logger.setLevel(logging.DEBUG)
+
+# 4. Verify IP whitelist (if configured)
+IYZICO_WEBHOOK_ALLOWED_IPS = []  # Allow all IPs for testing
+
+# 5. Test webhook locally with ngrok:
+# ngrok http 8000
+# Use ngrok URL in Iyzico panel
+```
+
+#### 3. "Payment ID already exists" Error
+
+**Problem:** Duplicate payment_id constraint violation.
+
+**Solution:**
+```python
+# Use unique conversation_id for each payment attempt
+import uuid
+
+order = Order.objects.create(
+    conversation_id=f"ORDER-{uuid.uuid4()}",  # Always unique
+    amount=Decimal("99.00")
+)
+
+# Or use the utility function
+from django_iyzico.utils import generate_basket_id
+basket_id = generate_basket_id()  # Returns UUID-based ID
+```
+
+#### 4. Card Data Not Saving
+
+**Problem:** card_last_four_digits is always None.
+
+**Solution:**
+```python
+# Store card data before sending to Iyzico
+payment_data = {
+    'paymentCard': {
+        'cardNumber': '5528790000000008',
+        # ... other fields
+    }
+}
+
+# Extract and store card info
+order.mask_and_store_card_data(payment_data)
+
+# Then process payment
+response = client.create_payment(...)
+```
+
+#### 5. 3D Secure Callback Fails
+
+**Problem:** 3DS callback returns 404 or doesn't update payment.
+
+**Solution:**
+```python
+# 1. Verify URLs are included in your project
+# urls.py
+urlpatterns = [
+    path('payments/', include('django_iyzico.urls')),  # Required
+]
+
+# 2. Check callback URL configuration
+IYZICO_CALLBACK_URL = 'https://yourdomain.com/payments/callback/'
+
+# 3. Ensure callback URL is accessible (not behind auth)
+# The view has @csrf_exempt decorator by default
+
+# 4. Check payment token in callback
+# Token should be in GET parameters: ?token=xxx
+```
+
+#### 6. Refund Fails with "INSUFFICIENT_FUNDS"
+
+**Problem:** Refund requests fail even though payment was successful.
+
+**Solution:**
+```python
+# 1. Check payment status
+if order.can_be_refunded():
+    # Payment must be SUCCESS status
+    response = order.process_refund()
+
+# 2. For partial refunds, ensure amount is valid
+if order.amount >= Decimal("50.00"):
+    response = order.process_refund(amount=Decimal("50.00"))
+
+# 3. Check Iyzico merchant account balance
+# Refunds require sufficient balance in merchant account
+
+# 4. Wait time: Allow 24 hours after payment before refund
+```
+
+#### 7. Admin Shows Wrong Payment Status
+
+**Problem:** Admin displays incorrect status or outdated data.
+
+**Solution:**
+```bash
+# Sync payment statuses with Iyzico API
+python manage.py sync_iyzico_payments --model myapp.Order --days 7
+
+# Check for specific payment
+python manage.py sync_iyzico_payments --model myapp.Order --payment-id 12345
+
+# Use --dry-run to see what would be updated
+python manage.py sync_iyzico_payments --model myapp.Order --dry-run
+```
+
+#### 8. Migration Errors
+
+**Problem:** Errors when running makemigrations or migrate.
+
+**Solution:**
+```bash
+# 1. Ensure django_iyzico is in INSTALLED_APPS
+# settings.py
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    # ...
+    'django_iyzico',  # Add this
+    'myapp',  # Your app with Order model
+]
+
+# 2. Create migrations for your model
+python manage.py makemigrations myapp
+
+# 3. Apply migrations
+python manage.py migrate
+
+# 4. If you get conflicts, try:
+python manage.py makemigrations --merge
+```
+
+#### 9. Test Card Numbers Not Working
+
+**Problem:** Sandbox test cards are being rejected.
+
+**Solution:**
+```python
+# Use Iyzico's official test cards:
+
+# Successful payment test card:
+{
+    'cardNumber': '5528790000000008',
+    'cardHolderName': 'John Doe',
+    'expireMonth': '12',
+    'expireYear': '2030',
+    'cvc': '123'
+}
+
+# 3D Secure test card (OTP: 123456):
+{
+    'cardNumber': '5528790000000008',
+    'cardHolderName': 'John Doe',
+    'expireMonth': '12',
+    'expireYear': '2030',
+    'cvc': '123'
+}
+
+# Ensure you're using SANDBOX_BASE_URL
+IYZICO_BASE_URL = 'https://sandbox-api.iyzipay.com'
+```
+
+#### 10. High Response Times
+
+**Problem:** Payment processing is slow.
+
+**Solution:**
+```python
+# 1. Enable database connection pooling
+# settings.py
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'CONN_MAX_AGE': 600,  # Connection pooling
+    }
+}
+
+# 2. Use select_related for foreign keys
+orders = Order.objects.select_related('user').all()
+
+# 3. Add database indexes (already included in AbstractIyzicoPayment)
+# Check with:
+# python manage.py sqlmigrate myapp 0001
+
+# 4. Cache Iyzico settings
+from django.core.cache import cache
+# Settings are auto-cached in IyzicoClient
+
+# 5. Use async views for I/O-bound operations (Django 4.1+)
+from django.views.decorators.http import require_http_methods
+```
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting:
+
+```python
+# settings.py
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django_iyzico': {
+            'handlers': ['console'],
+            'level': 'DEBUG',  # Shows all API calls
+            'propagate': False,
+        },
+    },
+}
+```
+
+### Getting Help
+
+If you're still experiencing issues:
+
+1. Check the [GitHub Issues](https://github.com/aladagemre/django-iyzico/issues) for similar problems
+2. Review the [SECURITY.md](SECURITY.md) for security-related questions
+3. Enable DEBUG logging and check the output
+4. Create a new issue with:
+   - Django version
+   - Python version
+   - django-iyzico version
+   - Error message and full traceback
+   - Minimal code to reproduce the issue
 
 ## 📚 Documentation
 
