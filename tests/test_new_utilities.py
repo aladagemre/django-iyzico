@@ -131,9 +131,11 @@ class TestGenerateBasketId:
         assert len(basket_id) >= 19  # B + 10 + 8
         assert basket_id[0] == "B"
 
-        # UUID part should be uppercase
+        # UUID part should be uppercase (any letters should be uppercase)
         uuid_part = basket_id[11:]
-        assert uuid_part.isupper()
+        # Check that uuid_part is 8 characters of hexadecimal
+        assert len(uuid_part) == 8
+        assert all(c in "0123456789ABCDEF" for c in uuid_part)
 
 
 class TestCalculatePaidPriceWithInstallments:
