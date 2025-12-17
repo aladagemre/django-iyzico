@@ -1,0 +1,14 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+include SECURITY.md
+include CONTRIBUTING.md
+include pyproject.toml
+recursive-include django_iyzico *.py
+recursive-include django_iyzico py.typed
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude tests *
+recursive-exclude docs *
+prune tests
+prune docs
