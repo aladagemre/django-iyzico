@@ -139,10 +139,10 @@ def on_payment_success(sender, instance, **kwargs):
 | README.md | 452 | Main documentation |
 | CHANGELOG.md | 243 | Version history |
 | SECURITY.md | 339 | Security policy |
-| RELEASE_NOTES.md | 445 | Release announcement |
-| SECURITY_AUDIT.md | 380 | Audit report |
-| PYPI_PUBLISH.md | 425 | Publication guide |
 | CONTRIBUTING.md | 250+ | Developer guide |
+| docs/RELEASE_NOTES.md | 445 | Release announcement |
+| docs/SECURITY_AUDIT.md | 380 | Audit report |
+| docs/PYPI_PUBLISH.md | 425 | Publication guide |
 
 **Total Documentation:** ~15,000+ words
 
@@ -234,11 +234,15 @@ Root Documentation:
 ├── README.md                   (Main documentation)
 ├── CHANGELOG.md                (Version history)
 ├── SECURITY.md                 (Security policy)
-├── SECURITY_AUDIT.md           (Audit report)
-├── RELEASE_NOTES.md            (Release announcement)
-├── PYPI_PUBLISH.md             (Publication guide)
 ├── CONTRIBUTING.md             (Contributing guidelines)
-└── LICENSE                     (MIT License)
+├── LICENSE                     (MIT License)
+└── docs/
+    ├── RELEASE_NOTES.md        (Release announcement)
+    ├── SECURITY_AUDIT.md       (Audit report)
+    ├── PYPI_PUBLISH.md         (Publication guide)
+    ├── RELEASE_READY.md        (Release checklist)
+    ├── WHATS_NEXT.md           (Future plans)
+    └── PRIVATE_DEVELOPMENT.md  (Development notes)
 ```
 
 ### Configuration Files
@@ -359,7 +363,7 @@ git tag -l v0.1.0-beta
    pip install django-iyzico==0.1.0b1
    python -c "import django_iyzico; print(django_iyzico.__version__)"
    ```
-3. **Create GitHub release:** See PYPI_PUBLISH.md
+3. **Create GitHub release:** See docs/PYPI_PUBLISH.md
 4. **Announce:** Twitter, Reddit (r/django), Django Forum
 
 ---
@@ -599,7 +603,7 @@ Starting from a blank canvas on December 15, 2025, we:
 - ✅ Ready for PyPI publication
 
 **Next step:**
-Follow the instructions in `PYPI_PUBLISH.md` to publish to PyPI.
+Follow the instructions in `docs/PYPI_PUBLISH.md` to publish to PyPI.
 
 **Questions?**
 Open an issue on GitHub or reach out via email.

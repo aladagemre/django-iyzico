@@ -131,10 +131,10 @@ The django-iyzico package has successfully completed its initial development pha
   - README.md updated for PyPI (452 lines)
   - CHANGELOG.md created (243 lines)
   - SECURITY.md created (339 lines)
-  - RELEASE_NOTES.md created (445 lines)
-  - SECURITY_AUDIT.md created (380 lines)
-  - PYPI_PUBLISH.md created (425 lines)
   - CONTRIBUTING.md completed
+  - docs/RELEASE_NOTES.md created (445 lines)
+  - docs/SECURITY_AUDIT.md created (380 lines)
+  - docs/PYPI_PUBLISH.md created (425 lines)
 - ✅ Security audit completed (100/100 score)
 - ✅ Package metadata finalized (pyproject.toml)
 - ✅ Package built and tested

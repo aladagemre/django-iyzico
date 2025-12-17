@@ -156,7 +156,7 @@ open https://github.com/aladagemre/django-iyzico
 1. Go to https://github.com/aladagemre/django-iyzico/releases/new
 2. Choose tag: `v0.1.0-beta`
 3. Release title: `v0.1.0-beta - First Beta Release`
-4. Description: Copy from `RELEASE_NOTES.md`
+4. Description: Copy from `docs/RELEASE_NOTES.md`
 5. Check "This is a pre-release" (since it's beta)
 6. Optionally attach files:
    - `dist/django_iyzico-0.1.0b1-py3-none-any.whl`

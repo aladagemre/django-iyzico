@@ -368,10 +368,10 @@ See [SECURITY.md](SECURITY.md) for complete security guidelines.
 
 ## 📚 Documentation
 
-- **README:** [README.md](README.md) - Complete usage guide
-- **Changelog:** [CHANGELOG.md](CHANGELOG.md) - Version history
-- **Security:** [SECURITY.md](SECURITY.md) - Security policy and best practices
-- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
+- **README:** [README.md](../README.md) - Complete usage guide
+- **Changelog:** [CHANGELOG.md](../CHANGELOG.md) - Version history
+- **Security:** [SECURITY.md](../SECURITY.md) - Security policy and best practices
+- **Contributing:** [CONTRIBUTING.md](../CONTRIBUTING.md) - Development guidelines
 - **Security Audit:** [SECURITY_AUDIT.md](SECURITY_AUDIT.md) - Detailed security audit report
 
 ---

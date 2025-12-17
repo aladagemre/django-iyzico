@@ -275,7 +275,7 @@ rm -rf prod_test_env
 1. Go to https://github.com/aladagemre/django-iyzico/releases/new
 2. Choose tag: `v0.1.0-beta`
 3. Release title: `v0.1.0-beta - First Beta Release`
-4. Copy content from `RELEASE_NOTES.md` into description
+4. Copy content from `docs/RELEASE_NOTES.md` into description
 5. Mark as "pre-release" (since it's beta)
 6. Attach build artifacts (optional):
    - `dist/django_iyzico-0.1.0b1-py3-none-any.whl`
@@ -304,7 +304,7 @@ https://github.com/aladagemre/django-iyzico
 ```
 Title: [Release] django-iyzico v0.1.0-beta - Django integration for Iyzico payment gateway
 
-Body: (Copy key highlights from RELEASE_NOTES.md)
+Body: (Copy key highlights from docs/RELEASE_NOTES.md)
 ```
 
 **Django Forum:**
