@@ -3,7 +3,7 @@
 **Repository:** https://github.com/aladagemre/django-iyzico
 **Status:** Private (not published to PyPI yet)
 **Version:** 0.1.0b1
-**Date:** December 17, 2024
+**Date:** December 17, 2025
 
 ---
 
@@ -534,5 +534,5 @@ Before making public:
 
 **Happy developing! 🚀**
 
-*Private development started: December 17, 2024*
+*Private development started: December 17, 2025*
 *Repository: https://github.com/aladagemre/django-iyzico*

@@ -334,5 +334,5 @@ We appreciate security researchers who report vulnerabilities responsibly. Contr
 
 ---
 
-**Last Updated:** 2024-12-17
+**Last Updated:** 2025-12-17
 **Version:** 0.1.0-beta

@@ -1,6 +1,6 @@
 # Release Notes: django-iyzico v0.1.0-beta
 
-**Release Date:** December 17, 2024
+**Release Date:** December 17, 2025
 **Status:** 🚀 Beta Release
 **PyPI:** `pip install django-iyzico==0.1.0b1`
 
@@ -501,6 +501,6 @@ Read the [Quick Start Guide](README.md#-quick-start) for step-by-step instructio
 ---
 
 **Version:** v0.1.0-beta (0.1.0b1)
-**Release Date:** December 17, 2024
+**Release Date:** December 17, 2025
 **Author:** Emre Aladag ([@aladagemre](https://github.com/aladagemre))
 **Repository:** https://github.com/aladagemre/django-iyzico

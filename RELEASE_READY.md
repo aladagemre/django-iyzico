@@ -1,7 +1,7 @@
 # 🚀 django-iyzico v0.1.0-beta - RELEASE READY
 
 **Status:** ✅ READY FOR PUBLICATION
-**Date:** December 17, 2024
+**Date:** December 17, 2025
 **Version:** 0.1.0b1
 **Git Tag:** v0.1.0-beta
 
@@ -528,7 +528,7 @@ else:
 
 ### What We Accomplished
 
-Starting from a blank canvas on December 15, 2024, we:
+Starting from a blank canvas on December 15, 2025, we:
 
 1. **Planned Comprehensively**
    - Created Business Requirements Document (BRD)
@@ -608,7 +608,7 @@ Open an issue on GitHub or reach out via email.
 
 **Built with ❤️ for the Django community**
 
-*Package ready for publication on December 17, 2024*
+*Package ready for publication on December 17, 2025*
 
 **Version:** 0.1.0b1
 **Git Tag:** v0.1.0-beta

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0-beta] - 2024-12-17
+## [0.1.0-beta] - 2025-12-17
 
 ### Added
 - **Core Payment Processing**
@@ -152,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Release Notes
 
-### v0.1.0-beta (2024-12-17)
+### v0.1.0-beta (2025-12-17)
 
 **First Beta Release** 🎉
 

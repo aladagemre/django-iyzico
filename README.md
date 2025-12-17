@@ -438,7 +438,7 @@ Built on top of the official [iyzipay-python](https://github.com/iyzico/iyzipay-
 
 - **Issues:** [GitHub Issues](https://github.com/aladagemre/django-iyzico/issues)
 - **Security:** See [SECURITY.md](SECURITY.md)
-- **Email:** your-email@example.com
+
 
 ## ⭐ Show Your Support
 
@@ -448,4 +448,4 @@ If django-iyzico helps your project, please give it a star on GitHub!
 
 **Author:** Emre Aladag ([@aladagemre](https://github.com/aladagemre))
 **Status:** 🚀 Beta Release (v0.1.0-beta)
-**Last Updated:** 2024-12-17
+**Last Updated:** 2025-12-17

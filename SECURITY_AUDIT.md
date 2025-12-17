@@ -1,6 +1,6 @@
 # Security Audit Report - django-iyzico v0.1.0-beta
 
-**Audit Date:** 2024-12-17
+**Audit Date:** 2025-12-17
 **Auditor:** Automated Security Audit
 **Package Version:** 0.1.0-beta
 **Status:** ✅ PASSED
@@ -357,5 +357,5 @@ This automated audit covers code-level security. Users are responsible for:
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2024-12-17
+**Last Updated:** 2025-12-17
 **Next Audit:** Before v1.0.0 release

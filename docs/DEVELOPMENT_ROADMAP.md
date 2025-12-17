@@ -1,7 +1,7 @@
 # Development Roadmap - django-iyzico
 
 **Document Version:** 2.0 (Updated)
-**Last Updated:** December 17, 2024
+**Last Updated:** December 17, 2025
 **Status:** ✅ Beta Release Complete
 
 ---
@@ -152,7 +152,7 @@ The django-iyzico package has successfully completed its initial development pha
 
 ## Current Status (v0.1.0-beta)
 
-**Release Date:** December 17, 2024
+**Release Date:** December 17, 2025
 **Status:** 🚀 Beta Release (Private Development)
 **Repository:** https://github.com/aladagemre/django-iyzico (Private)
 
@@ -534,10 +534,10 @@ The django-iyzico package has successfully completed its initial development pha
 
 | Phase | Duration | Status | Completion |
 |-------|----------|--------|------------|
-| **Phase 1: MVP** | 2 days | ✅ Complete | Dec 15, 2024 |
-| **Phase 2: Enhanced** | 2 days | ✅ Complete | Dec 16, 2024 |
-| **Phase 3: Polish** | 2 days | ✅ Complete | Dec 17, 2024 |
-| **Beta Release** | 1 day | ✅ Complete | Dec 17, 2024 |
+| **Phase 1: MVP** | 2 days | ✅ Complete | Dec 15, 2025 |
+| **Phase 2: Enhanced** | 2 days | ✅ Complete | Dec 16, 2025 |
+| **Phase 3: Polish** | 2 days | ✅ Complete | Dec 17, 2025 |
+| **Beta Release** | 1 day | ✅ Complete | Dec 17, 2025 |
 | **Internal Testing** | 4 weeks | 🔄 In Progress | Jan 2025 |
 | **v0.2.0 Development** | 12 weeks | 📅 Planned | Q1 2025 |
 | **v1.0.0 Development** | 24 weeks | 📅 Planned | Q2-Q3 2025 |
@@ -554,5 +554,5 @@ The django-iyzico package has successfully completed its initial development pha
 ---
 
 **Document Status:** Living Document
-**Last Updated:** December 17, 2024
+**Last Updated:** December 17, 2025
 **Next Review:** January 2025 (after internal testing phase)

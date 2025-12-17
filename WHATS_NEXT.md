@@ -2,7 +2,7 @@
 
 **Current Status:** ✅ Package fully prepared and ready for publication
 **Version:** 0.1.0b1
-**Date:** December 17, 2024
+**Date:** December 17, 2025
 
 ---
 
@@ -311,7 +311,7 @@ open https://github.com/aladagemre/django-iyzico/pulls
 version = "0.1.0b2"
 
 # Update CHANGELOG.md
-## [0.1.0b2] - 2024-12-XX
+## [0.1.0b2] - 2025-12-XX
 ### Fixed
 - Critical bug in payment processing
 
@@ -547,5 +547,5 @@ The Django community will love having a well-built, secure Iyzico integration!
 ---
 
 **Document Version:** 1.0
-**Last Updated:** December 17, 2024
+**Last Updated:** December 17, 2025
 **Status:** Ready for action!

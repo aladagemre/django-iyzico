@@ -517,6 +517,6 @@ We're using PEP 440 version identifiers:
 ---
 
 **Document Version:** 1.0
-**Last Updated:** 2024-12-17
+**Last Updated:** 2025-12-17
 **Package Version:** 0.1.0b1
 **Status:** Ready for publication
