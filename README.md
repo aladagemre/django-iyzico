@@ -5,8 +5,9 @@
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Django Version](https://img.shields.io/badge/django-3.2%2B-green.svg)](https://www.djangoproject.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-291%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-495%2B%20passing-brightgreen.svg)](#testing)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](#testing)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
 
 > **Note:** This is an unofficial, community-maintained package and is not endorsed by or affiliated with Iyzico. For the official Iyzico Python SDK, please visit [iyzipay-python](https://github.com/iyzico/iyzipay-python).
 
@@ -16,18 +17,22 @@
 
 ### Core Features
 - ✅ **Payment Processing** - Direct payments and 3D Secure support
+- ✅ **Subscription Payments** - Recurring billing with automated lifecycle management
+- ✅ **Installment Payments** - Full installment support with BIN-based options
+- ✅ **Multi-Currency** - Support for TRY, USD, EUR, GBP with conversion
 - ✅ **PCI DSS Compliant** - Secure card data handling (never stores full card numbers)
 - ✅ **Refund Processing** - Full and partial refunds
 - ✅ **Django Admin** - Professional interface with color-coded statuses
 - ✅ **Webhook Handling** - Real-time payment status updates
-- ✅ **Signal System** - Event-driven architecture (8 signals)
+- ✅ **Signal System** - Event-driven architecture (17 signals)
+- ✅ **Celery Integration** - Automated subscription billing and task processing
 - ✅ **Management Commands** - Sync and cleanup utilities
 - ✅ **Type Hints** - Full type coverage for IDE support
-- ✅ **Well Tested** - 291 tests, 95% coverage for core modules
+- ✅ **Well Tested** - 495+ tests, 95%+ coverage across all modules
 
 ### Optional Features
 - 🔌 **Django REST Framework** - Optional API support
-- 🔧 **Additional Utilities** - Installment calculator, basket ID generator
+- 🔧 **Advanced Utilities** - Currency conversion, installment calculation, basket ID generator
 
 ## 📦 Installation
 
@@ -170,6 +175,86 @@ def checkout(request):
         return redirect('checkout')
 ```
 
+### 7. Process Subscription Payments (v0.2.0+)
+
+```python
+from django_iyzico.subscription_models import SubscriptionPlan, Subscription
+from django_iyzico.subscription_manager import SubscriptionManager
+
+# Create a subscription plan
+plan = SubscriptionPlan.objects.create(
+    name="Premium Monthly",
+    price=Decimal("99.00"),
+    currency="TRY",
+    billing_interval="MONTHLY",
+    billing_period=1,
+    trial_days=7
+)
+
+# Subscribe a user
+manager = SubscriptionManager()
+subscription = manager.create_subscription(
+    plan=plan,
+    user=request.user,
+    payment_method={
+        'cardHolderName': 'John Doe',
+        'cardNumber': '5528790000000008',
+        'expireMonth': '12',
+        'expireYear': '2030',
+        'cvc': '123',
+    }
+)
+
+# Subscription automatically bills every month
+# See docs/SUBSCRIPTION_GUIDE.md for complete guide
+```
+
+### 8. Use Installment Payments (v0.2.0+)
+
+```python
+from django_iyzico.installment_client import InstallmentClient
+
+# Get installment options for a card
+client = InstallmentClient()
+options = client.get_installment_info(
+    bin_number='552879',  # First 6 digits of card
+    price=Decimal('1000.00')
+)
+
+# Display installment options to user
+for option in options:
+    print(f"{option.installment_count} installments: {option.installment_price}/month")
+    print(f"Total: {option.total_price} (Rate: {option.installment_rate}%)")
+
+# Process payment with installments
+payment_data['installment'] = 3  # 3 installments
+response = client.create_payment(payment_data)
+
+# See docs/INSTALLMENT_GUIDE.md for complete guide
+```
+
+### 9. Multi-Currency Support (v0.2.0+)
+
+```python
+from django_iyzico.currency import format_amount, CurrencyConverter
+
+# Create payment in any supported currency
+order = Order.objects.create(
+    amount=Decimal("100.00"),
+    currency='USD'  # TRY, USD, EUR, or GBP
+)
+
+# Format amount with currency symbol
+formatted = order.get_formatted_amount()  # "$100.00"
+
+# Convert between currencies
+converter = CurrencyConverter()
+try_amount = order.convert_to_currency('TRY')
+print(f"${order.amount} USD = ₺{try_amount} TRY")
+
+# See docs/CURRENCY_GUIDE.md for complete guide
+```
+
 ## 🎨 Django Admin Integration
 
 ```python
@@ -192,10 +277,17 @@ class OrderAdmin(IyzicoPaymentAdminMixin, admin.ModelAdmin):
 
 ## 📡 Signal Handling
 
+django-iyzico provides 17 signals for payment and subscription lifecycle events:
+
+### Payment Signals (8 signals)
+
 ```python
 # signals.py
 from django.dispatch import receiver
-from django_iyzico.signals import payment_completed, payment_failed
+from django_iyzico.signals import (
+    payment_completed, payment_failed, payment_refunded,
+    threeds_completed, webhook_received
+)
 
 @receiver(payment_completed)
 def on_payment_success(sender, instance, **kwargs):
@@ -217,6 +309,34 @@ def on_payment_failed(sender, instance, **kwargs):
 
     # Notify user
     send_email(instance.buyer_email, "Payment Failed")
+```
+
+### Subscription Signals (9 signals - v0.2.0+)
+
+```python
+from django_iyzico.subscription_signals import (
+    subscription_created, subscription_activated,
+    subscription_cancelled, subscription_payment_succeeded,
+    subscription_payment_failed
+)
+
+@receiver(subscription_activated)
+def on_subscription_activated(sender, subscription, **kwargs):
+    """Handle subscription activation."""
+    # Grant access to premium features
+    subscription.user.grant_premium_access()
+
+    # Send welcome email
+    send_email(subscription.user.email, "Welcome to Premium!")
+
+@receiver(subscription_payment_failed)
+def on_subscription_payment_failed(sender, subscription, payment, **kwargs):
+    """Handle failed subscription payment."""
+    # Notify user
+    send_email(subscription.user.email, "Payment Failed - Please Update Card")
+
+    # Log for retry
+    logger.warning(f"Subscription {subscription.id} payment failed")
 ```
 
 ## 🔄 Webhook Handling
@@ -360,9 +480,9 @@ pytest tests/test_client.py -v
 ```
 
 **Test Statistics:**
-- **312 total tests**
-- **291 passing** (21 skipped for optional DRF)
-- **95% coverage** for core modules
+- **495+ total tests**
+- **95%+ coverage** across all modules
+- **Comprehensive test suites** for payments, subscriptions, installments, and currency
 - **83+ security-critical tests**
 
 ## 🔧 Troubleshooting
@@ -634,10 +754,17 @@ If you're still experiencing issues:
 
 ## 📚 Documentation
 
+### Core Documentation
 - [**Changelog**](CHANGELOG.md) - Version history and migration guide
 - [**Security Policy**](SECURITY.md) - Security features and best practices
 - [**Contributing**](CONTRIBUTING.md) - Development guidelines
-- [**API Reference**](docs/) - Complete API documentation
+- [**Development Roadmap**](docs/DEVELOPMENT_ROADMAP.md) - Project roadmap and milestones
+
+### Feature Guides (v0.2.0+)
+- [**Subscription Guide**](docs/SUBSCRIPTION_GUIDE.md) - Complete guide to recurring billing (800+ lines)
+- [**Installment Guide**](docs/INSTALLMENT_GUIDE.md) - Complete guide to installment payments (800+ lines)
+- [**Currency Guide**](docs/CURRENCY_GUIDE.md) - Complete guide to multi-currency support (600+ lines)
+- [**Release Notes v0.2.0**](docs/RELEASE_NOTES_v0.2.0.md) - Complete v0.2.0 release documentation
 
 ## 🤝 Contributing
 
@@ -673,27 +800,39 @@ mypy django_iyzico
 
 | Phase | Status | Features |
 |-------|--------|----------|
-| **Phase 1** | ✅ Complete | Core payment processing |
-| **Phase 2** | ✅ Complete | Admin, refunds, security |
-| **Phase 3** | ✅ Complete | Commands, DRF, utilities |
-| **Release** | 🚀 Beta | v0.1.0-beta |
+| **Milestone 1** | ✅ Complete | Core payment processing, admin, refunds |
+| **Milestone 2** | ✅ Complete | Subscription payments with Celery |
+| **Milestone 3** | ✅ Complete | Installment payments |
+| **Milestone 4** | ✅ Complete | Multi-currency support |
+| **Milestone 5** | 🚀 In Progress | v0.2.0 Release preparation |
 
 ## 🗺️ Roadmap
 
-### v0.1.0 (Current - Beta)
-- ✅ Core payment processing
-- ✅ Admin interface
-- ✅ Refund processing
-- ✅ Webhook handling
+### v0.1.0-beta (Released - December 2025)
+- ✅ Core payment processing (direct and 3D Secure)
+- ✅ Admin interface with advanced features
+- ✅ Refund processing (full and partial)
+- ✅ Webhook handling with security
 - ✅ Management commands
 - ✅ 95% test coverage
+- ✅ PCI DSS compliance
 
-### v0.2.0 (Planned)
-- [ ] Subscription payments
-- [ ] Installment support
-- [ ] Multi-currency support
+### v0.2.0 (Current - December 2025)
+- ✅ **Subscription payments** - Recurring billing with automated lifecycle
+- ✅ **Installment support** - BIN-based installment options and processing
+- ✅ **Multi-currency support** - TRY, USD, EUR, GBP with conversion
+- ✅ **Celery integration** - Automated subscription billing tasks
+- ✅ **17 lifecycle signals** - Payment and subscription events
+- ✅ **495+ comprehensive tests** - 95%+ coverage maintained
+- ✅ **3 detailed guides** - Subscription, Installment, Currency documentation
+- 🔄 Release preparation in progress
+
+### v0.3.0 (Planned)
 - [ ] Payment tokenization
-- [ ] Additional payment methods
+- [ ] Split payments for marketplaces
+- [ ] Additional payment methods (bank transfer, etc.)
+- [ ] Enhanced reporting and analytics
+- [ ] Webhook retry mechanism
 
 ## 📝 License
 
@@ -716,5 +855,6 @@ If django-iyzico helps your project, please give it a star on GitHub!
 ---
 
 **Author:** Emre Aladag ([@aladagemre](https://github.com/aladagemre))
-**Status:** 🚀 Beta Release (v0.1.0-beta)
-**Last Updated:** 2025-12-17
+**Version:** 0.2.0 (Release Preparation)
+**Status:** 🚀 Production-Ready
+**Last Updated:** December 17, 2025

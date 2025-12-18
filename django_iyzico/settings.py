@@ -115,6 +115,38 @@ class IyzicoSettings:
         """
         return get_setting("WEBHOOK_ALLOWED_IPS", default=[])
 
+    @property
+    def strict_ip_validation(self) -> bool:
+        """
+        Whether to require IP addresses for all payment operations.
+
+        When True (recommended for production), IP address is required for all
+        buyer info and refund operations. Raises validation error if missing.
+
+        When False (development only), allows fallback to default IP address.
+
+        Default: True (strict mode - production safe)
+
+        Security Note:
+            Iyzico API requires valid IP addresses. Setting this to False and
+            using default IP (127.0.0.1) will cause API rejections in production.
+        """
+        return get_setting("STRICT_IP_VALIDATION", default=True)
+
+    @property
+    def default_ip(self) -> str:
+        """
+        Default IP address to use when strict validation is disabled.
+
+        WARNING: This is for development/testing only. Iyzico will reject
+        localhost IPs in production. Always capture real user IP addresses.
+
+        Default: "127.0.0.1"
+
+        Note: This setting is ignored when IYZICO_STRICT_IP_VALIDATION is True.
+        """
+        return get_setting("DEFAULT_IP", default="127.0.0.1")
+
     def get_options(self) -> Dict[str, str]:
         """
         Get Iyzico API options dict.

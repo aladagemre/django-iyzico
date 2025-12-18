@@ -222,6 +222,39 @@ class AbstractIyzicoPayment(models.Model):
         help_text=_("Number of installments (1 for single payment)"),
     )
 
+    # Installment details (added in v0.2.0)
+    installment_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Installment Rate"),
+        help_text=_("Installment fee rate as percentage"),
+    )
+    monthly_installment_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Monthly Installment Amount"),
+        help_text=_("Amount per month for installment payments"),
+    )
+    total_with_installment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Total with Installment"),
+        help_text=_("Total amount including installment fees"),
+    )
+    bin_number = models.CharField(
+        max_length=6,
+        null=True,
+        blank=True,
+        verbose_name=_("BIN Number"),
+        help_text=_("First 6 digits of card (Bank Identification Number)"),
+    )
+
     # Buyer information
     buyer_email = models.EmailField(
         max_length=255,
@@ -294,12 +327,27 @@ class AbstractIyzicoPayment(models.Model):
         verbose_name = _("Iyzico Payment")
         verbose_name_plural = _("Iyzico Payments")
         indexes = [
+            # Primary identifiers
             models.Index(fields=["payment_id"]),
             models.Index(fields=["conversation_id"]),
+            # Status queries
             models.Index(fields=["status"]),
+            # Date queries
             models.Index(fields=["created_at"]),
             models.Index(fields=["-created_at"]),
+            # Buyer queries
             models.Index(fields=["buyer_email"]),
+            # Composite indexes for common query patterns
+            # Status + date filtering (payment reports, dashboards)
+            models.Index(fields=["status", "created_at"]),
+            # Payment ID + status (payment verification queries)
+            models.Index(fields=["payment_id", "status"]),
+            # Buyer email + status (user payment history)
+            models.Index(fields=["buyer_email", "status"]),
+            # Currency + status + date (financial reporting)
+            models.Index(fields=["currency", "status", "created_at"]),
+            # Card association filtering (analytics)
+            models.Index(fields=["card_association", "status"]),
         ]
 
     def __str__(self) -> str:
@@ -344,6 +392,7 @@ class AbstractIyzicoPayment(models.Model):
 
     def process_refund(
         self,
+        ip_address: str,
         amount: Optional[Decimal] = None,
         reason: Optional[str] = None,
     ):
@@ -351,6 +400,7 @@ class AbstractIyzicoPayment(models.Model):
         Process refund for this payment.
 
         Args:
+            ip_address: IP address initiating the refund (required)
             amount: Amount to refund (None for full refund)
             reason: Optional refund reason
 
@@ -364,10 +414,15 @@ class AbstractIyzicoPayment(models.Model):
         Example:
             >>> payment = Order.objects.get(id=1)
             >>> # Full refund
-            >>> response = payment.process_refund()
+            >>> response = payment.process_refund(ip_address='192.168.1.1')
             >>> # Partial refund
-            >>> response = payment.process_refund(amount=Decimal("50.00"), reason="Customer request")
+            >>> response = payment.process_refund(
+            ...     ip_address='192.168.1.1',
+            ...     amount=Decimal("50.00"),
+            ...     reason="Customer request"
+            ... )
         """
+        from django.db import transaction
         from .client import IyzicoClient
         from .signals import payment_refunded
 
@@ -377,8 +432,24 @@ class AbstractIyzicoPayment(models.Model):
         if not self.payment_id:
             raise ValidationError("Payment ID is missing")
 
-        client = IyzicoClient()
-        response = client.refund_payment(self.payment_id, amount, reason)
+        if not ip_address:
+            raise ValidationError("IP address is required for refund")
+
+        with transaction.atomic():
+            # Lock this payment row to prevent concurrent refunds
+            payment = type(self).objects.select_for_update().get(pk=self.pk)
+
+            # Double-check status after locking
+            if payment.status in [PaymentStatus.REFUNDED, PaymentStatus.REFUND_PENDING]:
+                raise ValidationError(f"Payment already refunded (status: {payment.status})")
+
+            client = IyzicoClient()
+            response = client.refund_payment(
+                payment_id=self.payment_id,
+                ip_address=ip_address,
+                amount=amount,
+                reason=reason,
+            )
 
         if response.is_successful():
             # Update payment status
@@ -577,3 +648,213 @@ class AbstractIyzicoPayment(models.Model):
         """
         amount = self.paid_amount if self.paid_amount else self.amount
         return f"{amount} {self.currency}"
+
+    # Installment helper methods (added in v0.2.0)
+
+    def has_installment(self) -> bool:
+        """
+        Check if payment uses installments.
+
+        Returns:
+            True if installment count > 1
+        """
+        return self.installment > 1
+
+    def get_installment_display(self) -> str:
+        """
+        Get formatted installment display string.
+
+        Returns:
+            Formatted installment info (e.g., "3x 34.33 TRY")
+        """
+        if not self.has_installment():
+            return "Single payment"
+
+        if self.monthly_installment_amount:
+            return f"{self.installment}x {self.monthly_installment_amount} {self.currency}"
+
+        return f"{self.installment}x installments"
+
+    def get_installment_fee(self) -> Decimal:
+        """
+        Calculate total installment fee.
+
+        Returns:
+            Fee amount (Decimal)
+        """
+        if not self.has_installment() or not self.total_with_installment:
+            return Decimal('0.00')
+
+        return self.total_with_installment - self.amount
+
+    def get_installment_details(self) -> Dict[str, Any]:
+        """
+        Get comprehensive installment details.
+
+        Returns:
+            Dictionary with all installment information
+        """
+        return {
+            'installment_count': self.installment,
+            'has_installment': self.has_installment(),
+            'installment_rate': self.installment_rate,
+            'monthly_amount': self.monthly_installment_amount,
+            'total_with_fees': self.total_with_installment,
+            'total_fee': self.get_installment_fee(),
+            'base_amount': self.amount,
+            'display': self.get_installment_display(),
+        }
+
+    # Multi-currency helper methods (added in v0.2.0)
+
+    def get_formatted_amount(self, show_symbol: bool = True, show_code: bool = False) -> str:
+        """
+        Get formatted amount with currency symbol/code.
+
+        Args:
+            show_symbol: Whether to show currency symbol
+            show_code: Whether to show currency code
+
+        Returns:
+            Formatted amount string
+
+        Example:
+            >>> payment.get_formatted_amount()
+            '$1,234.56'
+            >>> payment.get_formatted_amount(show_code=True)
+            '$1,234.56 USD'
+        """
+        from .currency import format_amount
+        return format_amount(self.amount, self.currency, show_symbol, show_code)
+
+    def get_formatted_paid_amount(self, show_symbol: bool = True, show_code: bool = False) -> str:
+        """
+        Get formatted paid amount with currency symbol/code.
+
+        Args:
+            show_symbol: Whether to show currency symbol
+            show_code: Whether to show currency code
+
+        Returns:
+            Formatted paid amount string
+        """
+        from .currency import format_amount
+        amount = self.paid_amount if self.paid_amount else self.amount
+        return format_amount(amount, self.currency, show_symbol, show_code)
+
+    def get_currency_symbol(self) -> str:
+        """
+        Get currency symbol for this payment.
+
+        Returns:
+            Currency symbol (e.g., '$', '₺', '€')
+
+        Example:
+            >>> payment.currency = 'USD'
+            >>> payment.get_currency_symbol()
+            '$'
+        """
+        from .currency import get_currency_symbol
+        return get_currency_symbol(self.currency)
+
+    def get_currency_name(self) -> str:
+        """
+        Get full currency name.
+
+        Returns:
+            Currency name (e.g., 'US Dollar')
+
+        Example:
+            >>> payment.currency = 'EUR'
+            >>> payment.get_currency_name()
+            'Euro'
+        """
+        from .currency import get_currency_name
+        return get_currency_name(self.currency)
+
+    def convert_to_currency(self, target_currency: str, converter=None) -> Decimal:
+        """
+        Convert payment amount to another currency.
+
+        Args:
+            target_currency: Target currency code
+            converter: CurrencyConverter instance (optional)
+
+        Returns:
+            Converted amount
+
+        Example:
+            >>> payment.amount = Decimal('100.00')
+            >>> payment.currency = 'USD'
+            >>> try_amount = payment.convert_to_currency('TRY')
+            >>> print(try_amount)
+            Decimal('3030.30')
+        """
+        from .currency import CurrencyConverter
+
+        if not converter:
+            converter = CurrencyConverter()
+
+        return converter.convert(
+            self.amount,
+            self.currency,
+            target_currency,
+        )
+
+    def is_currency(self, currency_code: str) -> bool:
+        """
+        Check if payment is in specific currency.
+
+        Args:
+            currency_code: Currency code to check
+
+        Returns:
+            True if payment currency matches
+
+        Example:
+            >>> payment.currency = 'TRY'
+            >>> payment.is_currency('TRY')
+            True
+            >>> payment.is_currency('USD')
+            False
+        """
+        return self.currency.upper() == currency_code.upper()
+
+    def get_amount_in_try(self, converter=None) -> Decimal:
+        """
+        Get payment amount in Turkish Lira (TRY).
+
+        Useful for reporting and analytics.
+
+        Args:
+            converter: CurrencyConverter instance (optional)
+
+        Returns:
+            Amount in TRY
+
+        Example:
+            >>> payment.amount = Decimal('100.00')
+            >>> payment.currency = 'USD'
+            >>> try_amount = payment.get_amount_in_try()
+        """
+        if self.is_currency('TRY'):
+            return self.amount
+
+        return self.convert_to_currency('TRY', converter)
+
+    def get_currency_info(self) -> Dict[str, Any]:
+        """
+        Get complete currency information.
+
+        Returns:
+            Dictionary with currency details
+
+        Example:
+            >>> info = payment.get_currency_info()
+            >>> print(info['symbol'])
+            '$'
+            >>> print(info['name'])
+            'US Dollar'
+        """
+        from .currency import get_currency_info
+        return get_currency_info(self.currency)

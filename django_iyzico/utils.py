@@ -19,28 +19,70 @@ from .exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 
+# Comprehensive list of sensitive field names to mask/remove
+SENSITIVE_CARD_FIELDS = frozenset({
+    # Card numbers
+    'cardNumber', 'card_number', 'number', 'cardNo', 'card_no',
+    'pan', 'PAN', 'primaryAccountNumber',
+    # Security codes
+    'cvc', 'cvv', 'cvv2', 'cvc2', 'securityCode', 'security_code',
+    'cid', 'CID', 'cardSecurityCode', 'card_security_code',
+    # Expiry dates
+    'expireMonth', 'expire_month', 'expiryMonth', 'expiry_month',
+    'expireYear', 'expire_year', 'expiryYear', 'expiry_year',
+    'expiry', 'expirationDate', 'expiration_date', 'exp',
+    # PIN and passwords
+    'pin', 'PIN', 'password', 'passwd',
+    # Tokens (might need to keep for recurring payments, handle carefully)
+    # 'cardToken' - NOT in this list as it may be needed
+})
+
+# Fields that are safe to keep (non-sensitive)
+SAFE_CARD_FIELDS = frozenset({
+    'cardType', 'card_type', 'cardFamily', 'card_family',
+    'cardAssociation', 'card_association', 'cardBankName', 'card_bank_name',
+    'cardBankCode', 'card_bank_code', 'cardHolderName', 'holderName',
+    'lastFourDigits', 'last_four', 'binNumber', 'bin_number',
+    'cardToken', 'cardUserKey',  # Tokens are safe (references, not actual data)
+})
+
+
 def mask_card_data(payment_details: Dict[str, Any]) -> Dict[str, Any]:
     """
     Remove sensitive card data before storage (PCI DSS compliance).
+
+    This function comprehensively masks all sensitive payment card data
+    to ensure PCI DSS compliance. It handles various field naming conventions
+    used by different payment systems.
 
     Keeps only:
     - Last 4 digits of card number
     - Cardholder name
     - Card metadata (type, family, association)
+    - BIN number (first 6 digits - not sensitive)
+    - Card tokens (secure references)
 
     Removes:
     - Full card number
-    - CVC/CVV
-    - Full expiry date
+    - CVC/CVV/Security codes
+    - Full expiry dates
+    - PIN numbers
 
     Args:
         payment_details: Dictionary containing card and payment information
 
     Returns:
-        Dictionary with sensitive data removed
+        Dictionary with sensitive data removed/masked
 
     Example:
-        >>> payment = {'card': {'cardNumber': '5528790000000008', 'cvc': '123'}}
+        >>> payment = {
+        ...     'card': {
+        ...         'cardNumber': '5528790000000008',
+        ...         'cvc': '123',
+        ...         'expireMonth': '12',
+        ...         'expireYear': '2030'
+        ...     }
+        ... }
         >>> safe = mask_card_data(payment)
         >>> safe['card']['lastFourDigits']
         '0008'
@@ -53,49 +95,146 @@ def mask_card_data(payment_details: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning("mask_card_data received non-dict input")
         return {}
 
-    safe_data = payment_details.copy()
+    safe_data = _mask_dict_recursive(payment_details)
 
+    # Handle the 'card' key specially
     if "card" in safe_data and isinstance(safe_data["card"], dict):
-        card = safe_data["card"]
-        card_number = card.get("cardNumber", card.get("number", ""))
+        card = payment_details.get("card", {})  # Get original card data
 
-        # Extract last 4 digits (or all digits if less than 4)
+        # Extract card number from various possible field names
+        card_number = ""
+        for field in ['cardNumber', 'card_number', 'number', 'pan']:
+            if field in card:
+                card_number = str(card[field])
+                break
+
+        # Extract last 4 digits
         if len(card_number) >= 4:
             last_four = card_number[-4:]
         else:
-            last_four = card_number  # Keep all digits for short numbers
+            last_four = card_number if card_number.isdigit() else ""
 
-        # Create safe card data (only non-sensitive info)
-        safe_data["card"] = {
+        # Extract BIN (first 6 digits) - this is not sensitive
+        bin_number = ""
+        if len(card_number) >= 6:
+            bin_number = card_number[:6]
+
+        # Build safe card data
+        safe_card = {
             "lastFourDigits": last_four,
-            "cardHolderName": card.get("cardHolderName", card.get("holderName", "")),
-            # Card metadata from response (if available)
-            "cardType": card.get("cardType", ""),
-            "cardFamily": card.get("cardFamily", ""),
-            "cardAssociation": card.get("cardAssociation", ""),
+            "binNumber": bin_number,
         }
 
-        # Explicitly log removal of sensitive data
-        logger.debug(
-            f"Masked card data - kept last 4 digits: {'*' * 12}{last_four}"
+        # Copy safe fields from original
+        for field in SAFE_CARD_FIELDS:
+            if field in card:
+                safe_card[field] = card[field]
+
+        # Get cardholder name from various possible fields
+        holder_name = (
+            card.get("cardHolderName") or
+            card.get("holderName") or
+            card.get("card_holder_name") or
+            card.get("name") or
+            ""
         )
+        if holder_name:
+            safe_card["cardHolderName"] = holder_name
+
+        safe_data["card"] = safe_card
+
+        # Log masking activity
+        if last_four:
+            logger.debug(
+                f"Masked card data - BIN: {bin_number[:2]}****, Last 4: {last_four}"
+            )
+
+    # Handle 'paymentCard' key (Iyzico SDK format)
+    if "paymentCard" in safe_data:
+        safe_data["paymentCard"] = _mask_dict_recursive(safe_data["paymentCard"])
 
     return safe_data
 
 
-def validate_amount(amount: Any, currency: str = "TRY") -> Decimal:
+def _mask_dict_recursive(data: Any) -> Any:
     """
-    Validate and convert payment amount to Decimal.
+    Recursively mask sensitive fields in a dictionary.
+
+    Args:
+        data: Dictionary or other value to mask.
+
+    Returns:
+        Masked data with sensitive fields replaced with '***REDACTED***'.
+    """
+    if isinstance(data, dict):
+        result = {}
+        for key, value in data.items():
+            if key in SENSITIVE_CARD_FIELDS:
+                # Replace sensitive data
+                result[key] = "***REDACTED***"
+            elif isinstance(value, dict):
+                result[key] = _mask_dict_recursive(value)
+            elif isinstance(value, list):
+                result[key] = [_mask_dict_recursive(item) for item in value]
+            else:
+                result[key] = value
+        return result
+    elif isinstance(data, list):
+        return [_mask_dict_recursive(item) for item in data]
+    else:
+        return data
+
+
+# Currency-specific validation limits
+# These prevent potentially fraudulent or erroneous transactions
+CURRENCY_LIMITS: Dict[str, Dict[str, Decimal]] = {
+    'TRY': {
+        'min': Decimal('0.01'),
+        'max': Decimal('1000000.00'),  # 1 million TRY
+    },
+    'USD': {
+        'min': Decimal('0.01'),
+        'max': Decimal('50000.00'),  # 50k USD
+    },
+    'EUR': {
+        'min': Decimal('0.01'),
+        'max': Decimal('50000.00'),  # 50k EUR
+    },
+    'GBP': {
+        'min': Decimal('0.01'),
+        'max': Decimal('50000.00'),  # 50k GBP
+    },
+    # Default limits for other currencies
+    'DEFAULT': {
+        'min': Decimal('0.01'),
+        'max': Decimal('100000.00'),  # 100k default
+    },
+}
+
+
+def validate_amount(
+    amount: Any,
+    currency: str = "TRY",
+    custom_max: Optional[Decimal] = None,
+) -> Decimal:
+    """
+    Validate and convert payment amount to Decimal with currency-specific limits.
+
+    This function ensures amounts are within acceptable ranges to prevent:
+    - Accidental high-value transactions
+    - Potential fraud attempts
+    - Micro-transaction spam
 
     Args:
         amount: Amount to validate (can be str, int, float, Decimal)
         currency: Currency code (default: TRY)
+        custom_max: Optional custom maximum amount (overrides currency default)
 
     Returns:
         Validated Decimal amount
 
     Raises:
-        ValidationError: If amount is invalid
+        ValidationError: If amount is invalid, too low, or too high
 
     Example:
         >>> validate_amount("100.50")
@@ -104,6 +243,10 @@ def validate_amount(amount: Any, currency: str = "TRY") -> Decimal:
         Traceback (most recent call last):
         ...
         ValidationError: Amount must be greater than zero
+        >>> validate_amount("999999999")
+        Traceback (most recent call last):
+        ...
+        ValidationError: Amount exceeds maximum allowed for TRY
     """
     try:
         decimal_amount = Decimal(str(amount))
@@ -127,17 +270,56 @@ def validate_amount(amount: Any, currency: str = "TRY") -> Decimal:
             error_code="INVALID_AMOUNT_PRECISION",
         )
 
-    # Currency-specific validation
-    if currency == "TRY":
-        # Minimum amount for Turkish Lira (0.01 TRY)
-        if decimal_amount < Decimal("0.01"):
-            raise ValidationError(
-                "Amount must be at least 0.01 TRY",
-                error_code="AMOUNT_TOO_LOW",
-            )
+    # Get currency-specific limits
+    currency_upper = currency.upper()
+    limits = CURRENCY_LIMITS.get(currency_upper, CURRENCY_LIMITS['DEFAULT'])
+    min_amount = limits['min']
+    max_amount = custom_max if custom_max is not None else limits['max']
 
-    logger.debug(f"Validated amount: {decimal_amount} {currency}")
+    # Check minimum amount
+    if decimal_amount < min_amount:
+        raise ValidationError(
+            f"Amount must be at least {min_amount} {currency_upper}",
+            error_code="AMOUNT_TOO_LOW",
+        )
+
+    # Check maximum amount
+    if decimal_amount > max_amount:
+        raise ValidationError(
+            f"Amount exceeds maximum allowed for {currency_upper} ({max_amount}). "
+            f"If this is intentional, contact support for approval.",
+            error_code="AMOUNT_TOO_HIGH",
+        )
+
+    # Log validation for high-value transactions (for monitoring)
+    warning_threshold = max_amount * Decimal('0.5')  # 50% of max
+    if decimal_amount > warning_threshold:
+        logger.info(
+            f"High-value amount validation: {decimal_amount} {currency_upper} "
+            f"(above 50% of {max_amount} limit)"
+        )
+
+    logger.debug(f"Validated amount: {decimal_amount} {currency_upper}")
     return decimal_amount
+
+
+def get_currency_limits(currency: str) -> Dict[str, Decimal]:
+    """
+    Get the validation limits for a specific currency.
+
+    Args:
+        currency: Currency code (e.g., 'TRY', 'USD', 'EUR')
+
+    Returns:
+        Dictionary with 'min' and 'max' Decimal values
+
+    Example:
+        >>> limits = get_currency_limits('USD')
+        >>> limits['max']
+        Decimal('50000.00')
+    """
+    currency_upper = currency.upper()
+    return CURRENCY_LIMITS.get(currency_upper, CURRENCY_LIMITS['DEFAULT']).copy()
 
 
 def validate_payment_data(payment_data: Dict[str, Any]) -> None:

@@ -591,18 +591,18 @@ class IyzicoClient:
     def refund_payment(
         self,
         payment_id: str,
+        ip_address: str,
         amount: Optional[Decimal] = None,
         reason: Optional[str] = None,
-        ip: str = "85.34.78.112",
     ) -> RefundResponse:
         """
         Refund a payment through Iyzico.
 
         Args:
             payment_id: Iyzico payment ID to refund
+            ip_address: IP address initiating the refund (required for audit)
             amount: Amount to refund (None for full refund)
             reason: Optional refund reason
-            ip: IP address for the refund request (default: test IP)
 
         Returns:
             RefundResponse object
@@ -626,10 +626,26 @@ class IyzicoClient:
                 error_code="MISSING_PAYMENT_ID",
             )
 
+        if not ip_address:
+            raise ValidationError(
+                "IP address is required for refund operations",
+                error_code="MISSING_IP_ADDRESS",
+            )
+
+        # Validate IP address format
+        import ipaddress as ip_lib
+        try:
+            ip_lib.ip_address(ip_address)
+        except ValueError:
+            raise ValidationError(
+                f"Invalid IP address format: {ip_address}",
+                error_code="INVALID_IP_ADDRESS",
+            )
+
         # Build request data
         request_data = {
             "paymentTransactionId": payment_id,
-            "ip": ip,
+            "ip": ip_address,
         }
 
         # Add amount for partial refund
@@ -684,6 +700,341 @@ class IyzicoClient:
             raise PaymentError(
                 f"Refund request failed: {str(e)}",
                 error_code="REFUND_ERROR",
+            ) from e
+
+    def register_card(
+        self,
+        card_info: Dict[str, Any],
+        buyer: Dict[str, Any],
+        external_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Register a card with Iyzico for future payments.
+
+        Stores card securely with Iyzico and returns tokens for recurring payments.
+        NEVER stores actual card numbers - only Iyzico tokens are returned.
+
+        Args:
+            card_info: Card information (cardHolderName, cardNumber, expireMonth, expireYear, cvc)
+            buyer: Buyer information (name, surname, email, identityNumber, etc.)
+            external_id: Optional external user ID for card storage
+
+        Returns:
+            Dict with card_token, card_user_key, and card details
+
+        Raises:
+            CardError: If card registration fails
+            ValidationError: If input data is invalid
+
+        Example:
+            >>> client = IyzicoClient()
+            >>> result = client.register_card(
+            ...     card_info={
+            ...         'cardHolderName': 'John Doe',
+            ...         'cardNumber': '5528790000000008',
+            ...         'expireMonth': '12',
+            ...         'expireYear': '2030',
+            ...         'cvc': '123',
+            ...     },
+            ...     buyer={
+            ...         'id': str(user.id),
+            ...         'name': 'John',
+            ...         'surname': 'Doe',
+            ...         'email': 'john@example.com',
+            ...         'identityNumber': '11111111111',
+            ...         'registrationAddress': 'Address',
+            ...         'city': 'Istanbul',
+            ...         'country': 'Turkey',
+            ...         'ip': request.META.get('REMOTE_ADDR'),
+            ...     },
+            ... )
+            >>> # Store returned tokens in database
+            >>> card_token = result['card_token']
+            >>> card_user_key = result['card_user_key']
+        """
+        # Build request data
+        request_data = {
+            "locale": self.settings.locale,
+            "conversationId": external_id or f"card-reg-{buyer.get('id', 'unknown')}",
+            "email": buyer.get("email"),
+            "externalId": external_id or buyer.get("id"),
+            "card": {
+                "cardAlias": card_info.get("cardAlias", "My Card"),
+                "cardHolderName": card_info["cardHolderName"],
+                "cardNumber": card_info["cardNumber"],
+                "expireMonth": card_info["expireMonth"],
+                "expireYear": card_info["expireYear"],
+            },
+        }
+
+        logger.info(
+            f"Registering card for user external_id={external_id or buyer.get('id')}"
+        )
+
+        try:
+            # Call Iyzico Card Storage API
+            card = iyzipay.Card()
+            raw_response = card.create(request_data, self.get_options())
+
+            # Parse response
+            response_dict = parse_iyzico_response(raw_response)
+            status = response_dict.get("status")
+
+            if status != "success":
+                error_code = response_dict.get("errorCode")
+                error_message = response_dict.get("errorMessage", "Card registration failed")
+
+                logger.warning(
+                    f"Card registration failed - error_code={error_code}, "
+                    f"error_message={error_message}"
+                )
+
+                raise CardError(
+                    error_message,
+                    error_code=error_code,
+                    error_group=response_dict.get("errorGroup"),
+                )
+
+            # Extract card token and details
+            card_token = response_dict.get("cardToken")
+            card_user_key = response_dict.get("cardUserKey")
+            card_alias = response_dict.get("cardAlias")
+            bin_number = response_dict.get("binNumber")
+            last_four_digits = response_dict.get("lastFourDigits")
+            card_type = response_dict.get("cardType")
+            card_association = response_dict.get("cardAssociation")
+            card_family = response_dict.get("cardFamily")
+            card_bank_name = response_dict.get("cardBankName")
+            card_bank_code = response_dict.get("cardBankCode")
+
+            logger.info(
+                f"Card registered successfully - card_token={card_token}, "
+                f"card_user_key={card_user_key}, last_four={last_four_digits}"
+            )
+
+            return {
+                "card_token": card_token,
+                "card_user_key": card_user_key,
+                "card_alias": card_alias,
+                "bin_number": bin_number,
+                "last_four_digits": last_four_digits,
+                "card_type": card_type,
+                "card_association": card_association,
+                "card_family": card_family,
+                "card_bank_name": card_bank_name,
+                "card_bank_code": card_bank_code,
+                "card_holder_name": card_info["cardHolderName"],
+                "expiry_month": card_info["expireMonth"],
+                "expiry_year": card_info["expireYear"],
+            }
+
+        except CardError:
+            raise
+        except Exception as e:
+            logger.error(f"Card registration failed: {str(e)}", exc_info=True)
+            raise CardError(
+                f"Card registration failed: {str(e)}",
+                error_code="CARD_REGISTRATION_ERROR",
+            ) from e
+
+    def delete_card(
+        self,
+        card_token: str,
+        card_user_key: str,
+    ) -> bool:
+        """
+        Delete a stored card from Iyzico.
+
+        Args:
+            card_token: Iyzico card token to delete
+            card_user_key: Iyzico user key associated with the card
+
+        Returns:
+            True if deletion was successful
+
+        Raises:
+            CardError: If card deletion fails
+            ValidationError: If tokens are missing
+
+        Example:
+            >>> client = IyzicoClient()
+            >>> client.delete_card(
+            ...     card_token=payment_method.card_token,
+            ...     card_user_key=payment_method.card_user_key,
+            ... )
+        """
+        if not card_token:
+            raise ValidationError(
+                "Card token is required for deletion",
+                error_code="MISSING_CARD_TOKEN",
+            )
+
+        if not card_user_key:
+            raise ValidationError(
+                "Card user key is required for deletion",
+                error_code="MISSING_CARD_USER_KEY",
+            )
+
+        # Build request data
+        request_data = {
+            "locale": self.settings.locale,
+            "cardToken": card_token,
+            "cardUserKey": card_user_key,
+        }
+
+        logger.info(f"Deleting card - card_token={card_token}")
+
+        try:
+            # Call Iyzico Card Deletion API
+            card = iyzipay.Card()
+            raw_response = card.delete(request_data, self.get_options())
+
+            # Parse response
+            response_dict = parse_iyzico_response(raw_response)
+            status = response_dict.get("status")
+
+            if status != "success":
+                error_code = response_dict.get("errorCode")
+                error_message = response_dict.get("errorMessage", "Card deletion failed")
+
+                logger.warning(
+                    f"Card deletion failed - error_code={error_code}, "
+                    f"error_message={error_message}"
+                )
+
+                raise CardError(
+                    error_message,
+                    error_code=error_code,
+                    error_group=response_dict.get("errorGroup"),
+                )
+
+            logger.info(f"Card deleted successfully - card_token={card_token}")
+            return True
+
+        except CardError:
+            raise
+        except Exception as e:
+            logger.error(f"Card deletion failed: {str(e)}", exc_info=True)
+            raise CardError(
+                f"Card deletion failed: {str(e)}",
+                error_code="CARD_DELETION_ERROR",
+            ) from e
+
+    def create_payment_with_token(
+        self,
+        order_data: Dict[str, Any],
+        card_token: str,
+        card_user_key: str,
+        buyer: Dict[str, Any],
+        billing_address: Dict[str, Any],
+        shipping_address: Optional[Dict[str, Any]] = None,
+        basket_items: Optional[List[Dict[str, Any]]] = None,
+    ) -> PaymentResponse:
+        """
+        Create a payment using a stored card token (for recurring payments).
+
+        Args:
+            order_data: Order information (price, paidPrice, currency, etc.)
+            card_token: Iyzico card token
+            card_user_key: Iyzico user key
+            buyer: Buyer information
+            billing_address: Billing address information
+            shipping_address: Shipping address (optional, defaults to billing)
+            basket_items: Basket items (optional)
+
+        Returns:
+            PaymentResponse with payment result
+
+        Raises:
+            ValidationError: If input data is invalid
+            PaymentError: If payment fails
+            CardError: If card is invalid
+
+        Example:
+            >>> client = IyzicoClient()
+            >>> payment_method = PaymentMethod.get_default_for_user(user)
+            >>> response = client.create_payment_with_token(
+            ...     order_data={'price': '100.00', 'paidPrice': '100.00', ...},
+            ...     card_token=payment_method.card_token,
+            ...     card_user_key=payment_method.card_user_key,
+            ...     buyer={'name': 'John', 'surname': 'Doe', ...},
+            ...     billing_address={'address': '...', 'city': 'Istanbul', ...}
+            ... )
+        """
+        # Validate order data
+        validate_payment_data(order_data)
+
+        # Format addresses
+        if shipping_address is None:
+            shipping_address = billing_address
+
+        buyer_full_name = f"{buyer.get('name', '')} {buyer.get('surname', '')}".strip()
+
+        # Build request data (similar to create_payment but with card token)
+        request_data = {
+            "locale": order_data.get("locale", self.settings.locale),
+            "conversationId": order_data.get("conversationId"),
+            "price": format_price(order_data["price"]),
+            "paidPrice": format_price(order_data["paidPrice"]),
+            "currency": order_data.get("currency", self.settings.currency),
+            "installment": order_data.get("installment", 1),
+            "basketId": order_data.get("basketId"),
+            "paymentChannel": order_data.get("paymentChannel", "WEB"),
+            "paymentGroup": order_data.get("paymentGroup", "SUBSCRIPTION"),
+            "paymentCard": {
+                "cardToken": card_token,
+                "cardUserKey": card_user_key,
+            },
+            "buyer": format_buyer_data(buyer),
+            "shippingAddress": format_address_data(shipping_address, buyer_full_name),
+            "billingAddress": format_address_data(billing_address, buyer_full_name),
+        }
+
+        # Add basket items if provided
+        if basket_items:
+            request_data["basketItems"] = basket_items
+
+        # Log request (sanitized)
+        logger.info(
+            f"Creating payment with token - conversation_id={request_data['conversationId']}, "
+            f"amount={request_data['price']} {request_data['currency']}"
+        )
+        logger.debug(f"Payment request: {sanitize_log_data(request_data)}")
+
+        try:
+            # Call Iyzico API
+            payment = iyzipay.Payment()
+            raw_response = payment.create(request_data, self.get_options())
+
+            # Parse and wrap response
+            response = PaymentResponse(raw_response)
+
+            # Log response
+            if response.is_successful():
+                logger.info(
+                    f"Token payment successful - payment_id={response.payment_id}, "
+                    f"conversation_id={response.conversation_id}"
+                )
+            else:
+                logger.warning(
+                    f"Token payment failed - error_code={response.error_code}, "
+                    f"error_message={response.error_message}, "
+                    f"conversation_id={response.conversation_id}"
+                )
+
+                # Translate to appropriate exception
+                self._handle_payment_error(response)
+
+            return response
+
+        except (ValidationError, PaymentError, CardError):
+            # Re-raise our custom exceptions
+            raise
+        except Exception as e:
+            logger.error(f"Token payment creation failed: {str(e)}", exc_info=True)
+            raise PaymentError(
+                f"Token payment creation failed: {str(e)}",
+                error_code="TOKEN_PAYMENT_ERROR",
             ) from e
 
     def _handle_payment_error(self, response: PaymentResponse) -> None:

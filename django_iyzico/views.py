@@ -215,7 +215,27 @@ def webhook_view(request: HttpRequest) -> JsonResponse:
 
     # Verify IP whitelist
     allowed_ips = iyzico_settings.webhook_allowed_ips
-    if not is_ip_allowed(client_ip, allowed_ips):
+
+    # SECURITY: In production, require IP whitelist to be configured
+    if not allowed_ips:
+        from django.conf import settings as django_settings
+        if not getattr(django_settings, 'DEBUG', False):
+            logger.error(
+                "SECURITY WARNING: Webhook IP whitelist not configured in production! "
+                "Set IYZICO_WEBHOOK_ALLOWED_IPS in your settings. "
+                "Rejecting webhook to prevent unauthorized access."
+            )
+            return JsonResponse(
+                {"status": "error", "message": "Webhook security not configured"},
+                status=403,
+            )
+        else:
+            logger.warning(
+                "Webhook IP whitelist not configured. Allowing all IPs in DEBUG mode. "
+                "Configure IYZICO_WEBHOOK_ALLOWED_IPS for production."
+            )
+
+    if allowed_ips and not is_ip_allowed(client_ip, allowed_ips):
         logger.warning(f"Webhook rejected - IP {client_ip} not in whitelist")
         return JsonResponse(
             {"status": "error", "message": "IP not allowed"},

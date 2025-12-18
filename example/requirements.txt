@@ -1,0 +1,26 @@
+# Django and core dependencies
+Django>=3.2,<6.0
+python-decouple>=3.6
+
+# django-iyzico (install from local or PyPI)
+# For development, install from parent directory:
+# pip install -e ..
+django-iyzico>=0.2.0
+
+# Django REST Framework (optional but recommended)
+djangorestframework>=3.12
+
+# Celery for subscription billing (optional)
+celery>=5.2
+redis>=4.0
+
+# Additional utilities
+Pillow>=9.0  # For image handling
+requests>=2.28  # For API calls
+
+# Development dependencies
+pytest>=7.0
+pytest-django>=4.0
+pytest-cov>=4.0
+black>=22.0
+isort>=5.0
