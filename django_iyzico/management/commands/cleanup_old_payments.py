@@ -9,7 +9,6 @@ import csv
 import logging
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional
 
 from django.apps import apps
 from django.core.management.base import BaseCommand, CommandError
@@ -334,10 +333,9 @@ class Command(BaseCommand):
                         }
                     )
 
+            total_count = old_failed.count() + old_successful.count()
             self.stdout.write(
-                self.style.SUCCESS(
-                    f"Exported {old_failed.count() + old_successful.count()} payments to {export_path}\n"
-                )
+                self.style.SUCCESS(f"Exported {total_count} payments to {export_path}\n")
             )
 
         except Exception as e:

@@ -6,22 +6,19 @@ and optional DRF ViewSet.
 """
 
 import json
-import pytest
 from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, RequestFactory
-from django.http import JsonResponse
+from django.test import RequestFactory, TestCase
 
+from django_iyzico.exceptions import IyzicoAPIException, IyzicoValidationException
+from django_iyzico.installment_client import BankInstallmentInfo, InstallmentOption
 from django_iyzico.installment_views import (
-    InstallmentOptionsView,
     BestInstallmentOptionsView,
+    InstallmentOptionsView,
     ValidateInstallmentView,
     get_installment_options,
 )
-from django_iyzico.installment_client import InstallmentOption, BankInstallmentInfo
-from django_iyzico.exceptions import IyzicoValidationException, IyzicoAPIException
-
 
 # ============================================================================
 # InstallmentOptionsView Tests
@@ -208,8 +205,8 @@ class TestInstallmentOptionsView(TestCase):
         )
 
         # Should strip whitespace and work
-        response = self.view.get(request)
-        # This might fail or succeed depending on implementation
+        # Response is not checked further as behavior depends on implementation
+        self.view.get(request)
 
 
 # ============================================================================
@@ -521,6 +518,7 @@ class TestGetInstallmentOptionsFunction(TestCase):
 
 try:
     from rest_framework.test import APIRequestFactory
+
     from django_iyzico.installment_views import InstallmentViewSet
 
     class TestInstallmentViewSet(TestCase):

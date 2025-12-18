@@ -5,8 +5,8 @@ Provides abstract base models that can be inherited by your Django models
 to add Iyzico payment functionality.
 """
 
-from typing import Dict, Any, Optional
 from decimal import Decimal
+from typing import Any, Dict, Optional
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -424,6 +424,7 @@ class AbstractIyzicoPayment(models.Model):
             ... )
         """
         from django.db import transaction
+
         from .client import IyzicoClient
         from .signals import payment_refunded
 

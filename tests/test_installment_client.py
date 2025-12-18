@@ -4,20 +4,17 @@ Tests for installment client functionality.
 Tests InstallmentClient, InstallmentOption, and BankInstallmentInfo classes.
 """
 
-import pytest
 from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from django_iyzico.exceptions import IyzicoAPIException, IyzicoValidationException
 from django_iyzico.installment_client import (
+    BankInstallmentInfo,
     InstallmentClient,
     InstallmentOption,
-    BankInstallmentInfo,
 )
-from django_iyzico.exceptions import (
-    IyzicoValidationException,
-    IyzicoAPIException,
-)
-
 
 # ============================================================================
 # Dataclass Tests

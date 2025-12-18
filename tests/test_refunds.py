@@ -1,9 +1,9 @@
 """Tests for refund functionality."""
 
-import pytest
 from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+import pytest
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from django_iyzico.client import IyzicoClient, RefundResponse

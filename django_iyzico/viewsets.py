@@ -6,7 +6,7 @@ Provides viewsets for exposing payment data through REST APIs.
 """
 
 try:
-    from rest_framework import viewsets, permissions, filters, status
+    from rest_framework import filters, permissions, status, viewsets
     from rest_framework.decorators import action
     from rest_framework.response import Response
 
@@ -30,16 +30,15 @@ except ImportError:
 
 
 if HAS_DRF:
-    from decimal import Decimal
     from django.core.exceptions import ValidationError as DjangoValidationError
 
+    from .exceptions import PaymentError
+    from .models import PaymentStatus
     from .serializers import (
         IyzicoPaymentSerializer,
-        RefundRequestSerializer,
         PaymentFilterSerializer,
+        RefundRequestSerializer,
     )
-    from .models import PaymentStatus
-    from .exceptions import PaymentError
     from .utils import get_client_ip
 
     class IyzicoPaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -191,7 +190,7 @@ if HAS_DRF:
                     "successful_amount": "8500.00"
                 }
             """
-            from django.db.models import Count, Sum, Q
+            from django.db.models import Count, Q, Sum
 
             queryset = self.filter_queryset(self.get_queryset())
 

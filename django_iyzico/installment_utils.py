@@ -5,8 +5,8 @@ Provides helper functions for installment calculations,
 formatting, and validation.
 """
 
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, List, Optional, Tuple
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Dict, List, Optional
 
 
 def calculate_installment_payment(
@@ -321,8 +321,8 @@ def calculate_savings_vs_single_payment(
         >>> print(cost)
         Decimal('3.00')  # 3 TRY more expensive
     """
-    base = option.get("base_amount", Decimal("0.00"))
-    total = option.get("total_with_fees", Decimal("0.00"))
+    base = installment_option.get("base_amount", Decimal("0.00"))
+    total = installment_option.get("total_with_fees", Decimal("0.00"))
 
     return total - base
 

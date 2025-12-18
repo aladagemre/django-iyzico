@@ -6,12 +6,12 @@ installment options.
 """
 
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
-from dataclasses import dataclass
 
-from django.core.cache import cache
 from django.conf import settings
+from django.core.cache import cache
 
 from .client import IyzicoClient
 from .exceptions import IyzicoAPIException, IyzicoValidationException
@@ -393,6 +393,7 @@ class InstallmentClient:
         # Call Iyzico API
         try:
             import iyzipay
+
             from .utils import parse_iyzico_response
 
             request_data = {
@@ -414,9 +415,8 @@ class InstallmentClient:
 
             # Check for errors
             if response.get("status") != "success":
-                raise IyzicoAPIException(
-                    f"Failed to retrieve installment info: {response.get('errorMessage', 'Unknown error')}"
-                )
+                error_msg = response.get("errorMessage", "Unknown error")
+                raise IyzicoAPIException(f"Failed to retrieve installment info: {error_msg}")
 
             installment_info = self._parse_installment_response(response, amount)
 
@@ -749,7 +749,9 @@ def get_installment_display(
         Formatted display string
 
     Example:
-        >>> display = get_installment_display(3, Decimal('34.33'), Decimal('103.00'), Decimal('100.00'))
+        >>> display = get_installment_display(
+        ...     3, Decimal('34.33'), Decimal('103.00'), Decimal('100.00')
+        ... )
         >>> print(display)
         '3x 34.33 TL (Total: 103.00 TL +3.00 TL fee)'
     """

@@ -7,7 +7,6 @@ status with Iyzico's API, updating any discrepancies.
 
 import logging
 from datetime import timedelta
-from decimal import Decimal
 from typing import Any, Dict
 
 from django.apps import apps
@@ -177,7 +176,7 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("\nDRY RUN - No actual changes were made"))
         else:
-            self.stdout.write(self.style.SUCCESS(f"\nSync completed successfully"))
+            self.stdout.write(self.style.SUCCESS("\nSync completed successfully"))
 
     def _import_model(self, model_path: str):
         """

@@ -4,25 +4,21 @@ Tests for subscription admin interface.
 Tests for Django admin classes and actions.
 """
 
-import pytest
 from datetime import timedelta
 from decimal import Decimal
 
+import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 from django.utils import timezone
 
-from django_iyzico.admin import (
-    SubscriptionPlanAdmin,
-    SubscriptionAdmin,
-    SubscriptionPaymentAdmin,
-)
+from django_iyzico.admin import SubscriptionAdmin, SubscriptionPaymentAdmin, SubscriptionPlanAdmin
 from django_iyzico.subscription_models import (
     BillingInterval,
-    SubscriptionPlan,
     Subscription,
     SubscriptionPayment,
+    SubscriptionPlan,
     SubscriptionStatus,
 )
 

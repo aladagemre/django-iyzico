@@ -4,15 +4,11 @@ Tests for installment-related model methods and admin functionality.
 Tests model helper methods and admin display methods for installments.
 """
 
-import pytest
 from decimal import Decimal
-from unittest.mock import Mock, MagicMock
 
 from django.test import TestCase
-from django.contrib.admin.sites import AdminSite
 
 from django_iyzico.models import PaymentStatus
-
 
 # ============================================================================
 # Mock Payment Model for Testing

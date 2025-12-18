@@ -4,7 +4,10 @@ Signal handlers for shop app.
 Demonstrates how to handle payment and webhook events.
 """
 
+import logging
+
 from django.dispatch import receiver
+
 from django_iyzico.signals import (
     payment_completed,
     payment_failed,
@@ -13,8 +16,8 @@ from django_iyzico.signals import (
     webhook_received,
 )
 from django_iyzico.subscription_signals import subscription_activated, subscription_payment_failed
+
 from .models import Order
-import logging
 
 logger = logging.getLogger(__name__)
 

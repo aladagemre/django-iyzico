@@ -4,11 +4,11 @@ Tests for SubscriptionManager.
 Comprehensive tests for subscription business logic.
 """
 
-import pytest
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -17,9 +17,9 @@ from django_iyzico.exceptions import IyzicoAPIException, IyzicoValidationExcepti
 from django_iyzico.subscription_manager import SubscriptionManager
 from django_iyzico.subscription_models import (
     BillingInterval,
-    SubscriptionPlan,
     Subscription,
     SubscriptionPayment,
+    SubscriptionPlan,
     SubscriptionStatus,
 )
 
@@ -244,7 +244,7 @@ class TestSubscriptionManagerCreate:
 
         with patch("django_iyzico.subscription_manager.subscription_created") as mock_signal:
             with patch.object(manager, "_create_subscription_payment"):
-                subscription = manager.create_subscription(
+                manager.create_subscription(
                     user=user,
                     plan=plan,
                     payment_method=payment_method,

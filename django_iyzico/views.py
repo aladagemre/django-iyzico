@@ -14,14 +14,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .client import IyzicoClient
-from .exceptions import IyzicoError, ThreeDSecureError, WebhookError
+from .exceptions import ThreeDSecureError
 from .settings import iyzico_settings
-from .signals import (
-    threeds_completed,
-    threeds_failed,
-    webhook_received,
-)
-from .utils import verify_webhook_signature, is_ip_allowed, get_client_ip
+from .signals import threeds_completed, threeds_failed, webhook_received
+from .utils import get_client_ip, is_ip_allowed, verify_webhook_signature
 
 logger = logging.getLogger(__name__)
 
@@ -443,7 +439,8 @@ def _handle_3ds_success(request: HttpRequest, response) -> HttpResponse:
 
     success_url = session_url or settings_url or "/payment/success/"
 
-    # Clean up session - remove URL redirects and previous payment data (consistent with error handler)
+    # Clean up session - remove URL redirects and previous payment data
+    # (consistent with error handler)
     payment_session_keys = [
         "iyzico_success_url",
         "iyzico_error_url",

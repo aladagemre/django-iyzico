@@ -11,12 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import iyzipay
 
-from .exceptions import (
-    CardError,
-    PaymentError,
-    ThreeDSecureError,
-    ValidationError,
-)
+from .exceptions import CardError, PaymentError, ThreeDSecureError, ValidationError
 from .settings import iyzico_settings
 from .utils import (
     extract_card_info,
@@ -191,7 +186,11 @@ class RefundResponse(BaseIyzicoResponse):
 
     def __str__(self) -> str:
         """String representation."""
-        return f"RefundResponse(status={self.status}, payment_id={self.payment_id}, refund_id={self.refund_id})"
+        return (
+            f"RefundResponse(status={self.status}, "
+            f"payment_id={self.payment_id}, "
+            f"refund_id={self.refund_id})"
+        )
 
     def __repr__(self) -> str:
         """Developer representation."""

@@ -4,7 +4,6 @@ Test models for django-iyzico tests.
 Provides concrete implementations of abstract models for testing.
 """
 
-from django.db import models
 from django_iyzico.models import AbstractIyzicoPayment
 
 

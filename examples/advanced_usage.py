@@ -8,30 +8,26 @@ Author: Emre Aladag
 Version: 0.1.0-beta
 """
 
-from decimal import Decimal
-from typing import Optional, Dict, Any
 import logging
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import transaction
-from django.http import JsonResponse, HttpRequest, HttpResponse
-from django.shortcuts import render, redirect, get_object_or_404
+from django.dispatch import receiver
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
-from django.contrib import messages
 
 from django_iyzico.client import IyzicoClient
-from django_iyzico.exceptions import PaymentError, CardError, ValidationError
+from django_iyzico.exceptions import CardError, PaymentError, ValidationError
 from django_iyzico.signals import payment_completed, payment_failed
-from django_iyzico.utils import (
-    generate_basket_id,
-    calculate_installment_amount,
-    validate_amount,
-)
+from django_iyzico.utils import calculate_installment_amount, generate_basket_id, validate_amount
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +48,7 @@ def ecommerce_checkout(request: HttpRequest) -> HttpResponse:
     - User feedback
     - Order creation in transaction
     """
-    from myapp.models import Order, CartItem
+    from myapp.models import CartItem, Order
 
     if request.method == "GET":
         # Display checkout form
@@ -231,8 +227,8 @@ def subscribe_to_premium(request: HttpRequest) -> JsonResponse:
     Note: Full subscription support coming in v0.2.0
     This example shows current workaround pattern.
     """
-    from myapp.models import Subscription, Payment
     from django.utils.dateutil import relativedelta
+    from myapp.models import Payment, Subscription
 
     try:
         plan_id = request.POST.get("plan_id")
@@ -426,7 +422,7 @@ def marketplace_checkout(request: HttpRequest) -> HttpResponse:
 
             # Process single payment to platform
             # (Individual vendor payouts handled separately)
-            client = IyzicoClient()
+            # IyzicoClient() would be used here for payment processing
 
             # ... (payment processing similar to Example 1)
 
@@ -459,7 +455,8 @@ def get_installment_options(request: HttpRequest) -> JsonResponse:
     """
     try:
         amount = Decimal(request.GET.get("amount", "0"))
-        card_bin = request.GET.get("card_bin", "")
+        # card_bin could be used for bank-specific rates
+        # card_bin = request.GET.get("card_bin", "")
 
         validate_amount(amount)
 
@@ -615,8 +612,6 @@ def bulk_refund_orders(order_ids: list, reason: str, refund_percentage: int = 10
 # Example 6: Payment Status Webhook Handler with Custom Logic
 # =============================================================================
 
-from django.dispatch import receiver
-
 
 @receiver(payment_completed)
 def handle_payment_success(sender, instance, **kwargs):
@@ -732,6 +727,7 @@ def generate_payment_report(request: HttpRequest) -> HttpResponse:
     """
     import csv
     from datetime import datetime
+
     from django.http import HttpResponse
     from myapp.models import Order
 
@@ -802,7 +798,7 @@ def create_test_payment(
     user,
     amount: Decimal = Decimal("100.00"),
     status: str = "success",
-) -> "Order":
+):
     """
     Create a test payment for development/testing.
 

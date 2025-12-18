@@ -10,8 +10,8 @@ import pytest
 from django_iyzico.exceptions import ValidationError
 from django_iyzico.utils import (
     calculate_installment_amount,
-    generate_basket_id,
     calculate_paid_price_with_installments,
+    generate_basket_id,
 )
 
 

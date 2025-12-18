@@ -257,7 +257,8 @@ class SubscriptionManager:
         else:
             logger.info(f"Using provided payment method for subscription {locked_subscription.id}")
 
-        # Check if already billed recently AFTER acquiring lock (critical for race condition prevention)
+        # Check if already billed recently AFTER acquiring lock
+        # (critical for race condition prevention)
         # This is the second line of defense after the lock
         recent_payment = locked_subscription.payments.filter(
             created_at__gte=timezone.now() - timedelta(hours=1),
@@ -870,14 +871,16 @@ class SubscriptionManager:
             if iyzico_settings.strict_ip_validation:
                 raise IyzicoValidationException(
                     f"IP address is required for user {user.id}. "
-                    f"Configure IP tracking in your user model or set IYZICO_STRICT_IP_VALIDATION=False for development.",
+                    f"Configure IP tracking in your user model or set "
+                    f"IYZICO_STRICT_IP_VALIDATION=False for development.",
                     error_code="MISSING_IP_ADDRESS",
                 )
             # Default to configured IP in non-strict mode (dev only)
             ip_address = iyzico_settings.default_ip
             logger.warning(
                 f"Using default IP address ({ip_address}) for user {user.id}. "
-                f"This is NOT production-safe. Enable IYZICO_STRICT_IP_VALIDATION=True and configure IP tracking."
+                f"This is NOT production-safe. Enable "
+                f"IYZICO_STRICT_IP_VALIDATION=True and configure IP tracking."
             )
 
         # Phone number (optional but recommended)
@@ -973,7 +976,7 @@ class SubscriptionManager:
             then creates a PaymentMethod record. The card tokens enable recurring
             payments without storing actual card numbers (PCI DSS compliant).
         """
-        from .subscription_models import PaymentMethod, CardBrand
+        from .subscription_models import CardBrand, PaymentMethod
 
         user = subscription.user
 

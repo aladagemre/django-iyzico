@@ -4,17 +4,16 @@ Tests for django-iyzico signals.
 Tests signal definitions and triggering.
 """
 
-import pytest
 from django.dispatch import Signal
 
 from django_iyzico.signals import (
-    payment_initiated,
     payment_completed,
     payment_failed,
+    payment_initiated,
     payment_refunded,
-    threeds_initiated,
     threeds_completed,
     threeds_failed,
+    threeds_initiated,
     webhook_received,
 )
 
@@ -270,8 +269,6 @@ class TestSignalSenderFiltering:
 
         class TestSender:
             pass
-
-        sender_obj = TestSender()
 
         def receiver(sender, **kwargs):
             received.append((sender, kwargs))

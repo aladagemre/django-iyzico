@@ -11,23 +11,22 @@ Requirements:
 """
 
 from decimal import Decimal
-from datetime import timedelta
-from django.utils import timezone
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from django_iyzico.subscription_models import (
-    BillingInterval,
-    SubscriptionPlan,
-    Subscription,
-    SubscriptionStatus,
+from django_iyzico.signals import (
+    subscription_cancelled,
+    subscription_created,
+    subscription_payment_failed,
+    subscription_payment_succeeded,
 )
 from django_iyzico.subscription_manager import SubscriptionManager
-from django_iyzico.signals import (
-    subscription_created,
-    subscription_cancelled,
-    subscription_payment_succeeded,
-    subscription_payment_failed,
+from django_iyzico.subscription_models import (
+    BillingInterval,
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
 )
 
 User = get_user_model()
@@ -297,7 +296,7 @@ def downgrade_subscription(subscription, new_plan, at_period_end=True):
     )
 
     if at_period_end:
-        print(f"Downgrade scheduled for end of billing period")
+        print("Downgrade scheduled for end of billing period")
         print(f"Will switch to {new_plan.name} on {subscription.current_period_end}")
     else:
         print(f"Downgraded immediately to {new_plan.name}")
@@ -331,12 +330,12 @@ def cancel_subscription(subscription, immediate=False, reason=None):
     )
 
     if immediate:
-        print(f"Subscription cancelled immediately")
+        print("Subscription cancelled immediately")
         print(f"Access ended: {subscription.ended_at}")
     else:
-        print(f"Subscription will cancel at period end")
+        print("Subscription will cancel at period end")
         print(f"Access until: {subscription.current_period_end}")
-        print(f"No further charges will be made")
+        print("No further charges will be made")
 
     return updated_subscription
 
@@ -360,8 +359,8 @@ def pause_subscription(subscription):
 
     updated_subscription = manager.pause_subscription(subscription)
 
-    print(f"Subscription paused")
-    print(f"Billing stopped - will not be charged on next billing date")
+    print("Subscription paused")
+    print("Billing stopped - will not be charged on next billing date")
     print(f"Status: {updated_subscription.status}")  # PAUSED
 
     return updated_subscription
@@ -381,8 +380,8 @@ def resume_subscription(subscription):
 
     updated_subscription = manager.resume_subscription(subscription)
 
-    print(f"Subscription resumed")
-    print(f"Billing will continue on schedule")
+    print("Subscription resumed")
+    print("Billing will continue on schedule")
     print(f"Status: {updated_subscription.status}")  # ACTIVE
 
     return updated_subscription
@@ -530,7 +529,7 @@ def generate_subscription_report(start_date, end_date):
     Returns:
         dict with subscription metrics
     """
-    from django.db.models import Count, Sum, Avg
+    from django.db.models import Avg, Count, Sum
 
     # Active subscriptions
     active_subs = Subscription.objects.filter(

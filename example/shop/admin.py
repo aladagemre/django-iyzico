@@ -4,8 +4,10 @@ Admin configuration for shop app.
 
 from django.contrib import admin
 from django.utils.html import format_html
+
 from django_iyzico.admin import IyzicoPaymentAdminMixin
-from .models import Product, Order, OrderItem
+
+from .models import Order, OrderItem, Product
 
 
 @admin.register(Product)

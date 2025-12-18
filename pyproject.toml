@@ -79,6 +79,7 @@ dev = [
     "flake8>=5.0",
     "mypy>=1.0",
     "django-stubs>=4.0",
+    "pre-commit>=3.5.0",
 ]
 drf = [
     "djangorestframework>=3.12",

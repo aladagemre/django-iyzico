@@ -4,11 +4,9 @@ Tests for multi-currency model methods.
 Tests currency-related methods on AbstractIyzicoPayment model.
 """
 
-import pytest
 from decimal import Decimal
 
 from django_iyzico.currency import CurrencyConverter
-
 
 # ============================================================================
 # Mock Payment Model for Testing

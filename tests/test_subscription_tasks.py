@@ -4,28 +4,27 @@ Tests for subscription Celery tasks.
 Tests for automated billing, retries, and notifications.
 """
 
-import pytest
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch
 
+import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.utils import timezone
 
 from django_iyzico.subscription_models import (
-    SubscriptionPlan,
-    Subscription,
-    SubscriptionPayment,
-    SubscriptionStatus,
     BillingInterval,
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
 )
 from django_iyzico.tasks import (
+    charge_subscription,
+    check_trial_expiration,
+    expire_cancelled_subscriptions,
     process_due_subscriptions,
     retry_failed_payments,
-    expire_cancelled_subscriptions,
-    check_trial_expiration,
-    charge_subscription,
     send_payment_notification,
 )
 
@@ -70,7 +69,7 @@ class TestProcessDueSubscriptions:
         now = timezone.now()
 
         # Create subscription due for billing
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.ACTIVE,
@@ -106,7 +105,7 @@ class TestProcessDueSubscriptions:
         """Test handling subscription with no payment method."""
         now = timezone.now()
 
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.ACTIVE,
@@ -132,7 +131,7 @@ class TestProcessDueSubscriptions:
         """Test processing subscription with payment failure."""
         now = timezone.now()
 
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.ACTIVE,
@@ -164,7 +163,7 @@ class TestProcessDueSubscriptions:
         now = timezone.now()
 
         # Create subscription not yet due
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.ACTIVE,
@@ -188,7 +187,7 @@ class TestRetryFailedPayments:
         """Test successful payment retry."""
         now = timezone.now()
 
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.PAST_DUE,
@@ -247,9 +246,9 @@ class TestRetryFailedPayments:
         mock_manager.process_billing.return_value = mock_payment
         mock_manager_class.return_value = mock_manager
 
-        with patch("django_iyzico.tasks.send_payment_notification") as mock_notify:
+        with patch("django_iyzico.tasks.send_payment_notification"):
             with patch("django_iyzico.tasks.getattr", return_value=3):  # Max retries = 3
-                result = retry_failed_payments()
+                retry_failed_payments()
 
         subscription.refresh_from_db()
         assert subscription.status == SubscriptionStatus.EXPIRED
@@ -259,7 +258,7 @@ class TestRetryFailedPayments:
         """Test that recent failed attempts are not retried yet."""
         now = timezone.now()
 
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.PAST_DUE,
@@ -295,7 +294,7 @@ class TestRetryFailedPayments:
         mock_get_payment.return_value = None
 
         with patch("django_iyzico.tasks.getattr", return_value=3):
-            result = retry_failed_payments()
+            retry_failed_payments()
 
         subscription.refresh_from_db()
         assert subscription.status == SubscriptionStatus.EXPIRED
@@ -362,7 +361,7 @@ class TestCheckTrialExpiration:
         """Test trial expiration with successful first payment."""
         now = timezone.now()
 
-        subscription = Subscription.objects.create(
+        Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.TRIALING,
@@ -404,7 +403,7 @@ class TestCheckTrialExpiration:
 
         mock_get_payment.return_value = None
 
-        result = check_trial_expiration()
+        check_trial_expiration()
 
         subscription.refresh_from_db()
         assert subscription.status == SubscriptionStatus.EXPIRED

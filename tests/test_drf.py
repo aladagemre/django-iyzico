@@ -10,9 +10,8 @@ import pytest
 
 # Try to import DRF components
 try:
-    from rest_framework.test import APIRequestFactory, force_authenticate
     from rest_framework import status
-    from django.contrib.auth import get_user_model
+    from rest_framework.test import APIRequestFactory, force_authenticate
 
     HAS_DRF = True
 except ImportError:
@@ -22,20 +21,16 @@ except ImportError:
 try:
     from django_iyzico.serializers import (
         IyzicoPaymentSerializer,
-        RefundRequestSerializer,
         PaymentFilterSerializer,
+        RefundRequestSerializer,
     )
-    from django_iyzico.viewsets import (
-        IyzicoPaymentViewSet,
-        IyzicoPaymentManagementViewSet,
-    )
+    from django_iyzico.viewsets import IyzicoPaymentManagementViewSet, IyzicoPaymentViewSet
 
     HAS_DRF_COMPONENTS = True
 except ImportError:
     HAS_DRF_COMPONENTS = False
 
 from django_iyzico.models import PaymentStatus
-
 
 pytestmark = pytest.mark.skipif(
     not HAS_DRF or not HAS_DRF_COMPONENTS,
@@ -193,6 +188,7 @@ class TestPaymentFilterSerializer:
     def test_date_range_validation(self):
         """Test date range validation."""
         from datetime import datetime
+
         from django.utils import timezone
 
         # Invalid: created_after > created_before

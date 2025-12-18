@@ -3,6 +3,7 @@ Celery configuration for subscription billing.
 """
 
 import os
+
 from celery import Celery
 
 # Set the default Django settings module

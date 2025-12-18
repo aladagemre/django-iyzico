@@ -3,8 +3,8 @@ URL configuration for shop app (regular Django views).
 """
 
 from django.urls import path
-from . import views
-from . import views_3ds
+
+from . import views, views_3ds
 
 app_name = "shop"
 

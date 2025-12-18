@@ -5,17 +5,13 @@ Tests payment client with mocked iyzipay SDK calls.
 """
 
 import json
-import pytest
 from decimal import Decimal
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
+
+import pytest
 
 from django_iyzico.client import IyzicoClient, PaymentResponse, ThreeDSResponse
-from django_iyzico.exceptions import (
-    PaymentError,
-    CardError,
-    ThreeDSecureError,
-    ValidationError,
-)
+from django_iyzico.exceptions import CardError, PaymentError, ThreeDSecureError, ValidationError
 
 
 class TestPaymentResponse:

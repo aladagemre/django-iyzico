@@ -4,18 +4,13 @@ Tests for django-iyzico models.
 Tests AbstractIyzicoPayment model with a concrete implementation.
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from django.db import IntegrityError
 from django.utils import timezone
 
-from django_iyzico.models import (
-    AbstractIyzicoPayment,
-    PaymentStatus,
-    IyzicoPaymentManager,
-    IyzicoPaymentQuerySet,
-)
-
+from django_iyzico.models import PaymentStatus
 
 # Concrete model for testing
 from .models import TestPayment

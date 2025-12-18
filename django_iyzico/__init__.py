@@ -2,6 +2,33 @@
 django-iyzico: Django integration for Iyzico payment gateway
 """
 
+# Expose commonly used classes and functions
+# Note: Models are NOT imported here to avoid Django app registry issues
+# Import them directly from django_iyzico.models when needed
+from .exceptions import (
+    CardError,
+    ConfigurationError,
+    IyzicoError,
+    PaymentError,
+    ThreeDSecureError,
+    ValidationError,
+    WebhookError,
+)
+from .settings import IyzicoSettings, iyzico_settings
+from .signals import (  # Monitoring signals
+    double_billing_prevented,
+    high_failure_rate_detected,
+    payment_alert,
+    payment_completed,
+    payment_failed,
+    payment_initiated,
+    payment_refunded,
+    threeds_completed,
+    threeds_failed,
+    threeds_initiated,
+    webhook_received,
+)
+
 __version__ = "0.2.0"
 __author__ = "Emre Aladag"
 __email__ = "your-email@example.com"
@@ -16,34 +43,6 @@ def get_version():
     """Return the version string."""
     return __version__
 
-
-# Expose commonly used classes and functions
-# Note: Models are NOT imported here to avoid Django app registry issues
-# Import them directly from django_iyzico.models when needed
-from .exceptions import (
-    CardError,
-    ConfigurationError,
-    IyzicoError,
-    PaymentError,
-    ThreeDSecureError,
-    ValidationError,
-    WebhookError,
-)
-from .settings import IyzicoSettings, iyzico_settings
-from .signals import (
-    payment_completed,
-    payment_failed,
-    payment_initiated,
-    payment_refunded,
-    threeds_completed,
-    threeds_failed,
-    threeds_initiated,
-    webhook_received,
-    # Monitoring signals
-    payment_alert,
-    double_billing_prevented,
-    high_failure_rate_detected,
-)
 
 # Lazy imports for Django components to avoid app registry issues
 

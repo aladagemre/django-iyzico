@@ -425,6 +425,7 @@ def send_payment_notification(
         ... )
     """
     from django.core.mail import send_mail
+
     from .subscription_models import Subscription
 
     try:
@@ -541,6 +542,7 @@ def check_expiring_payment_methods() -> Dict[str, int]:
         Users are directed to update their payment method in the application.
     """
     from django.core.mail import send_mail
+
     from .subscription_models import PaymentMethod
 
     now = timezone.now()
@@ -572,15 +574,20 @@ def check_expiring_payment_methods() -> Dict[str, int]:
             if active_subscriptions > 0:
                 # Send notification about expired card
                 try:
+                    user_name = payment_method.user.first_name or payment_method.user.username
+                    expiry = f"{payment_method.expiry_month}/" f"{payment_method.expiry_year}"
                     send_mail(
                         subject="Payment Method Expired - Action Required",
                         message=(
-                            f"Hi {payment_method.user.first_name or payment_method.user.username},\n\n"
-                            f"Your payment method ending in {payment_method.card_last_four} "
-                            f"has expired ({payment_method.expiry_month}/{payment_method.expiry_year}).\n\n"
-                            f"You have {active_subscriptions} active subscription(s) that require "
+                            f"Hi {user_name},\n\n"
+                            f"Your payment method ending in "
+                            f"{payment_method.card_last_four} "
+                            f"has expired ({expiry}).\n\n"
+                            f"You have {active_subscriptions} "
+                            f"active subscription(s) that require "
                             f"a valid payment method.\n\n"
-                            f"Please log in to your account and update your payment method "
+                            f"Please log in to your account and "
+                            f"update your payment method "
                             f"to avoid service interruption.\n\n"
                             f"Thank you!"
                         ),
@@ -621,8 +628,8 @@ def check_expiring_payment_methods() -> Dict[str, int]:
             if active_subscriptions > 0:
                 # Calculate days until expiry
                 try:
-                    from datetime import datetime
                     import calendar
+                    from datetime import datetime
 
                     expiry_year = int(payment_method.expiry_year)
                     expiry_month = int(payment_method.expiry_month)
@@ -633,18 +640,25 @@ def check_expiring_payment_methods() -> Dict[str, int]:
 
                     # Only send notification if expiring within 30 days
                     if 0 < days_until_expiry <= 30:
+                        user_name = payment_method.user.first_name or payment_method.user.username
+                        card_info = (
+                            f"{payment_method.get_card_brand_display()} "
+                            f"ending in {payment_method.card_last_four}"
+                        )
+                        expiry = f"{payment_method.expiry_month}/" f"{payment_method.expiry_year}"
                         send_mail(
                             subject="Payment Method Expiring Soon",
                             message=(
-                                f"Hi {payment_method.user.first_name or payment_method.user.username},\n\n"
-                                f"Your payment method ({payment_method.get_card_brand_display()} "
-                                f"ending in {payment_method.card_last_four}) will expire in "
-                                f"{days_until_expiry} day(s) ({payment_method.expiry_month}/"
-                                f"{payment_method.expiry_year}).\n\n"
-                                f"You have {active_subscriptions} active subscription(s) "
+                                f"Hi {user_name},\n\n"
+                                f"Your payment method ({card_info}) "
+                                f"will expire in {days_until_expiry} "
+                                f"day(s) ({expiry}).\n\n"
+                                f"You have {active_subscriptions} "
+                                f"active subscription(s) "
                                 f"that use this payment method.\n\n"
-                                f"To avoid any interruption to your service, please log in "
-                                f"to your account and update your payment method before it expires.\n\n"
+                                f"To avoid any interruption to your service, "
+                                f"please log in to your account and "
+                                f"update your payment method before it expires.\n\n"
                                 f"Thank you!"
                             ),
                             from_email=getattr(

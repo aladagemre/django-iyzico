@@ -5,21 +5,15 @@ Tests 3DS callback and webhook views.
 """
 
 import json
-import pytest
 from unittest.mock import Mock, patch
-from django.test import RequestFactory
-from django.contrib.sessions.middleware import SessionMiddleware
 
-from django_iyzico.views import (
-    threeds_callback_view,
-    webhook_view,
-)
-from django_iyzico.signals import (
-    threeds_completed,
-    threeds_failed,
-    webhook_received,
-)
+import pytest
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.test import RequestFactory
+
 from django_iyzico.exceptions import ThreeDSecureError
+from django_iyzico.signals import threeds_completed, threeds_failed, webhook_received
+from django_iyzico.views import threeds_callback_view, webhook_view
 
 
 @pytest.fixture

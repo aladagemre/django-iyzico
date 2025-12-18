@@ -1,8 +1,8 @@
 # Generated migration for PaymentMethod model
 
+import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
-import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
@@ -27,7 +27,10 @@ class Migration(migrations.Migration):
                     "card_token",
                     models.CharField(
                         db_index=True,
-                        help_text="Iyzico card token for recurring payments. NEVER store full card numbers.",
+                        help_text=(
+                            "Iyzico card token for recurring payments. "
+                            "NEVER store full card numbers."
+                        ),
                         max_length=255,
                         unique=True,
                     ),
@@ -132,7 +135,9 @@ class Migration(migrations.Migration):
                     "is_verified",
                     models.BooleanField(
                         default=False,
-                        help_text="Whether this card has been verified via a successful transaction",
+                        help_text=(
+                            "Whether this card has been verified " "via a successful transaction"
+                        ),
                     ),
                 ),
                 (

@@ -2,15 +2,15 @@
 3D Secure payment views demonstrating the redirect flow.
 """
 
-from decimal import Decimal
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+
 from django_iyzico.client import IyzicoClient
-from django_iyzico.exceptions import ThreeDSecureError, PaymentError
-from .models import Product, Order, OrderItem
+from django_iyzico.exceptions import ThreeDSecureError
+
+from .models import Order, OrderItem, Product
 
 
 @login_required
@@ -76,7 +76,7 @@ def checkout_3ds_view(request):
 
         # Set success/error redirect URLs in session
         request.session["iyzico_success_url"] = f"/shop/orders/{order.id}/success/"
-        request.session["iyzico_error_url"] = f"/shop/checkout/error/"
+        request.session["iyzico_error_url"] = "/shop/checkout/error/"
 
         # Prepare 3D Secure payment data
         client = IyzicoClient()

@@ -4,16 +4,13 @@ Django admin interface for django-iyzico.
 Provides a comprehensive admin interface for payment management and monitoring.
 """
 
-import csv
 import logging
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from django.contrib import admin
-from django.db.models import QuerySet, Q
+from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse
-from django.urls import reverse
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from .models import PaymentStatus
@@ -407,28 +404,37 @@ class IyzicoPaymentAdminMixin:
         if "installment_count" in details:
             html_parts.append("<tr>")
             html_parts.append(
-                '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Installment Count</td>'
+                '<td style="padding: 8px; border: 1px solid #ddd; '
+                'font-weight: bold;">Installment Count</td>'
             )
+            count = escape(str(details["installment_count"]))
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{escape(str(details["installment_count"]))}x</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd;">' f"{count}x</td>"
             )
             html_parts.append("</tr>")
 
         if "base_amount" in details:
             html_parts.append("<tr>")
-            html_parts.append('<td style="padding: 8px; border: 1px solid #ddd;">Base Amount</td>')
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{escape(str(details["base_amount"]))} {currency}</td>'
+                '<td style="padding: 8px; border: 1px solid #ddd;">' "Base Amount</td>"
+            )
+            amount = escape(str(details["base_amount"]))
+            html_parts.append(
+                f'<td style="padding: 8px; border: 1px solid #ddd;">' f"{amount} {currency}</td>"
             )
             html_parts.append("</tr>")
 
         if "monthly_payment" in details:
             html_parts.append("<tr>")
             html_parts.append(
-                '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Monthly Payment</td>'
+                '<td style="padding: 8px; border: 1px solid #ddd; '
+                'font-weight: bold;">Monthly Payment</td>'
             )
+            monthly = escape(str(details["monthly_payment"]))
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd; font-size: 14px; font-weight: bold;">{escape(str(details["monthly_payment"]))} {currency}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd; '
+                f'font-size: 14px; font-weight: bold;">'
+                f"{monthly} {currency}</td>"
             )
             html_parts.append("</tr>")
 
@@ -441,36 +447,42 @@ class IyzicoPaymentAdminMixin:
                 rate_text += " (Zero Interest)"
             html_parts.append("<tr>")
             html_parts.append(
-                '<td style="padding: 8px; border: 1px solid #ddd;">Installment Rate</td>'
+                '<td style="padding: 8px; border: 1px solid #ddd;">' "Installment Rate</td>"
             )
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd; color: {color}; font-weight: bold;">{rate_text}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd; '
+                f'color: {color}; font-weight: bold;">{rate_text}</td>'
             )
             html_parts.append("</tr>")
 
         if "total_fee" in details:
             html_parts.append("<tr>")
-            html_parts.append('<td style="padding: 8px; border: 1px solid #ddd;">Total Fee</td>')
+            html_parts.append('<td style="padding: 8px; border: 1px solid #ddd;">' "Total Fee</td>")
+            fee = escape(str(details["total_fee"]))
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{escape(str(details["total_fee"]))} {currency}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd;">' f"{fee} {currency}</td>"
             )
             html_parts.append("</tr>")
 
         if "total_with_fees" in details:
             html_parts.append("<tr>")
             html_parts.append(
-                '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Total with Fees</td>'
+                '<td style="padding: 8px; border: 1px solid #ddd; '
+                'font-weight: bold;">Total with Fees</td>'
             )
+            total = escape(str(details["total_with_fees"]))
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{escape(str(details["total_with_fees"]))} {currency}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd; '
+                f'font-weight: bold;">{total} {currency}</td>'
             )
             html_parts.append("</tr>")
 
         if hasattr(obj, "bin_number") and obj.bin_number:
             html_parts.append("<tr>")
-            html_parts.append('<td style="padding: 8px; border: 1px solid #ddd;">Card BIN</td>')
+            html_parts.append('<td style="padding: 8px; border: 1px solid #ddd;">' "Card BIN</td>")
+            bin_num = escape(str(obj.bin_number))
             html_parts.append(
-                f'<td style="padding: 8px; border: 1px solid #ddd;">{escape(str(obj.bin_number))}</td>'
+                f'<td style="padding: 8px; border: 1px solid #ddd;">' f"{bin_num}</td>"
             )
             html_parts.append("</tr>")
 
@@ -482,9 +494,11 @@ class IyzicoPaymentAdminMixin:
             total = details.get("total_with_fees", 0)
             if base and total:
                 fee_amount = total - base
-                html_parts.append('<p style="margin-top: 10px; color: #666; font-size: 12px;">')
+                html_parts.append('<p style="margin-top: 10px; color: #666; ' 'font-size: 12px;">')
+                fee_escaped = escape(str(fee_amount))
                 html_parts.append(
-                    f"<em>Customer pays {escape(str(fee_amount))} {currency} more due to installment fees</em>"
+                    f"<em>Customer pays {fee_escaped} {currency} "
+                    f"more due to installment fees</em>"
                 )
                 html_parts.append("</p>")
 
@@ -509,7 +523,8 @@ class IyzicoPaymentAdminMixin:
                 code = obj.currency
 
                 return format_html(
-                    '<span style="font-size: 16px;">{}</span> <strong>{}</strong> <span style="color: #666;">({}</span>)',
+                    '<span style="font-size: 16px;">{}</span> '
+                    '<strong>{}</strong> <span style="color: #666;">({}</span>)',
                     symbol,
                     code,
                     name,
@@ -539,6 +554,7 @@ class IyzicoPaymentAdminMixin:
             return "-"
 
         import json
+
         from .utils import sanitize_log_data
 
         try:
@@ -590,10 +606,8 @@ class IyzicoPaymentAdminMixin:
             queryset: Selected payment objects
         """
         # Import here to avoid circular import
-        from .client import IyzicoClient
         from .utils import get_client_ip
 
-        client = IyzicoClient()
         refunded_count = 0
         failed_count = 0
 
@@ -605,7 +619,8 @@ class IyzicoPaymentAdminMixin:
             if not payment.can_be_refunded():
                 self.message_user(
                     request,
-                    f"Payment {payment.payment_id} cannot be refunded (status: {payment.get_status_display()})",
+                    f"Payment {payment.payment_id} cannot be refunded "
+                    f"(status: {payment.get_status_display()})",
                     level="warning",
                 )
                 failed_count += 1
@@ -685,6 +700,7 @@ class IyzicoPaymentAdminMixin:
             CSV file response
         """
         import csv
+
         from django.http import HttpResponse
 
         response = HttpResponse(content_type="text/csv")
@@ -792,11 +808,11 @@ class IyzicoPaymentAdminMixin:
 # Subscription Admin Classes
 try:
     from .subscription_models import (
-        PaymentMethod,
         CardBrand,
-        SubscriptionPlan,
+        PaymentMethod,
         Subscription,
         SubscriptionPayment,
+        SubscriptionPlan,
         SubscriptionStatus,
     )
 
@@ -978,13 +994,14 @@ try:
 
             Shows total successful payments and total amount billed using this card.
             """
-            from django.db.models import Count, Sum, Q
             from decimal import Decimal
+
+            from django.db.models import Count, Sum
+            from django.utils.html import escape
 
             # Get successful subscription payments using this card
             # Note: We need to check if there's a payment_method foreign key
             # Since PaymentMethod stores tokens, we match by card_token in metadata
-
             # For now, we'll count subscriptions that might use this card
             # A more accurate approach would be to link SubscriptionPayment to PaymentMethod
             user_subscriptions = obj.user.iyzico_subscriptions.filter(
@@ -1030,9 +1047,10 @@ try:
             - Active subscriptions using this card
             - Last usage date
             """
+            from decimal import Decimal
+
             from django.db.models import Count, Sum
             from django.utils.html import escape
-            from decimal import Decimal
 
             # Get all user subscriptions
             user_subscriptions = obj.user.iyzico_subscriptions.all()
@@ -1069,56 +1087,77 @@ try:
             # Build HTML output with escaped values
             html_parts = []
             html_parts.append(
-                '<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">'
+                '<div style="background: #f8f9fa; padding: 15px; '
+                'border-radius: 5px; margin: 10px 0;">'
             )
 
             # Header
             html_parts.append(
-                '<h3 style="margin-top: 0; color: #495057;">Payment Method Usage Analytics</h3>'
+                '<h3 style="margin-top: 0; color: #495057;">' "Payment Method Usage Analytics</h3>"
             )
 
             # Statistics grid
             html_parts.append(
-                '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">'
+                '<div style="display: grid; '
+                "grid-template-columns: repeat(2, 1fr); "
+                'gap: 15px; margin-bottom: 15px;">'
             )
 
             # Active Subscriptions
+            active_count = escape(str(active_subscriptions))
             html_parts.append(
                 f"""
-                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #28a745;">
-                    <div style="font-size: 24px; font-weight: bold; color: #28a745;">{escape(str(active_subscriptions))}</div>
-                    <div style="color: #6c757d; font-size: 12px;">Active Subscriptions</div>
+                <div style="background: white; padding: 12px;
+                     border-radius: 4px; border-left: 4px solid #28a745;">
+                    <div style="font-size: 24px; font-weight: bold;
+                         color: #28a745;">{active_count}</div>
+                    <div style="color: #6c757d; font-size: 12px;">
+                        Active Subscriptions</div>
                 </div>
             """
             )
 
             # Total Payments
+            success_count = escape(str(successful_payments))
             html_parts.append(
                 f"""
-                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #007bff;">
-                    <div style="font-size: 24px; font-weight: bold; color: #007bff;">{escape(str(successful_payments))}</div>
-                    <div style="color: #6c757d; font-size: 12px;">Successful Payments</div>
+                <div style="background: white; padding: 12px;
+                     border-radius: 4px; border-left: 4px solid #007bff;">
+                    <div style="font-size: 24px; font-weight: bold;
+                         color: #007bff;">{success_count}</div>
+                    <div style="color: #6c757d; font-size: 12px;">
+                        Successful Payments</div>
                 </div>
             """
             )
 
             # Total Amount
+            amount_str = escape(f"{total_amount:.2f}")
+            currency_str = escape(currency)
             html_parts.append(
                 f"""
-                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #17a2b8;">
-                    <div style="font-size: 24px; font-weight: bold; color: #17a2b8;">{escape(f'{total_amount:.2f}')} {escape(currency)}</div>
-                    <div style="color: #6c757d; font-size: 12px;">Total Amount Billed</div>
+                <div style="background: white; padding: 12px;
+                     border-radius: 4px; border-left: 4px solid #17a2b8;">
+                    <div style="font-size: 24px; font-weight: bold;
+                         color: #17a2b8;">{amount_str} {currency_str}</div>
+                    <div style="color: #6c757d; font-size: 12px;">
+                        Total Amount Billed</div>
                 </div>
             """
             )
 
             # Failed Payments
             failure_color = "#dc3545" if failed_payments > 0 else "#6c757d"
+            failed_count = escape(str(failed_payments))
             html_parts.append(
                 f"""
-                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid {failure_color};">
-                    <div style="font-size: 24px; font-weight: bold; color: {failure_color};">{escape(str(failed_payments))}</div>
-                    <div style="color: #6c757d; font-size: 12px;">Failed Payments</div>
+                <div style="background: white; padding: 12px;
+                     border-radius: 4px;
+                     border-left: 4px solid {failure_color};">
+                    <div style="font-size: 24px; font-weight: bold;
+                         color: {failure_color};">{failed_count}</div>
+                    <div style="color: #6c757d; font-size: 12px;">
+                        Failed Payments</div>
                 </div>
             """
             )
@@ -1130,29 +1169,31 @@ try:
                 from django.utils.timesince import timesince
 
                 html_parts.append(
-                    '<div style="color: #6c757d; font-size: 13px; margin-top: 10px;">'
+                    '<div style="color: #6c757d; font-size: 13px; ' 'margin-top: 10px;">'
                 )
-                html_parts.append(
-                    f"<strong>Last Used:</strong> {escape(timesince(obj.last_used_at))} ago "
-                )
-                html_parts.append(f'({escape(obj.last_used_at.strftime("%Y-%m-%d %H:%M"))})')
+                timesince_str = escape(timesince(obj.last_used_at))
+                html_parts.append(f"<strong>Last Used:</strong> {timesince_str} ago ")
+                date_str = escape(obj.last_used_at.strftime("%Y-%m-%d %H:%M"))
+                html_parts.append(f"({date_str})")
                 html_parts.append("</div>")
             else:
                 html_parts.append(
-                    '<div style="color: #999; font-size: 13px; margin-top: 10px;">Never used for payments</div>'
+                    '<div style="color: #999; font-size: 13px; '
+                    'margin-top: 10px;">Never used for payments</div>'
                 )
 
             # Card Info
             html_parts.append(
-                '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">'
+                '<div style="margin-top: 15px; padding-top: 15px; '
+                'border-top: 1px solid #dee2e6;">'
             )
             html_parts.append('<div style="color: #6c757d; font-size: 12px;">')
-            html_parts.append(
-                f"<strong>Card:</strong> {escape(obj.get_card_brand_display())} ending in {escape(str(obj.card_last_four))}<br>"
-            )
-            html_parts.append(
-                f"<strong>Expires:</strong> {escape(str(obj.expiry_month))}/{escape(str(obj.expiry_year))}"
-            )
+            brand = escape(obj.get_card_brand_display())
+            last_four = escape(str(obj.card_last_four))
+            html_parts.append(f"<strong>Card:</strong> {brand} ending in {last_four}<br>")
+            month = escape(str(obj.expiry_month))
+            year = escape(str(obj.expiry_year))
+            html_parts.append(f"<strong>Expires:</strong> {month}/{year}")
 
             if obj.is_expired():
                 html_parts.append(
@@ -1220,7 +1261,8 @@ try:
 
             self.message_user(
                 request,
-                f"Set payment method {payment_method.id} as default for user {payment_method.user}.",
+                f"Set payment method {payment_method.id} as default "
+                f"for user {payment_method.user}.",
                 level="success",
             )
 
@@ -1263,7 +1305,8 @@ try:
             if deleted_count > 0:
                 self.message_user(
                     request,
-                    f"Successfully deleted {deleted_count} payment method(s) from Iyzico and database.",
+                    f"Successfully deleted {deleted_count} payment method(s) "
+                    "from Iyzico and database.",
                     level="success",
                 )
 
@@ -1588,8 +1631,9 @@ try:
             status_display = obj.get_status_display()
 
             return format_html(
-                '<span style="background-color: {}; color: white; padding: 3px 10px; '
-                'border-radius: 3px; font-weight: bold; font-size: 11px;">{}</span>',
+                '<span style="background-color: {}; color: white; '
+                "padding: 3px 10px; border-radius: 3px; "
+                'font-weight: bold; font-size: 11px;">{}</span>',
                 color,
                 status_display,
             )
@@ -1630,12 +1674,10 @@ try:
 
             for payment in payments:
                 html_parts.append('<tr style="border-bottom: 1px solid #ddd;">')
-                html_parts.append(
-                    f'<td style="padding: 8px;">{escape(payment.created_at.strftime("%Y-%m-%d %H:%M"))}</td>'
-                )
-                html_parts.append(
-                    f'<td style="padding: 8px;">{escape(str(payment.amount))} {escape(str(payment.currency))}</td>'
-                )
+                date_str = escape(payment.created_at.strftime("%Y-%m-%d %H:%M"))
+                html_parts.append(f'<td style="padding: 8px;">{date_str}</td>')
+                amount_str = f"{escape(str(payment.amount))} {escape(str(payment.currency))}"
+                html_parts.append(f'<td style="padding: 8px;">{amount_str}</td>')
                 html_parts.append(
                     f'<td style="padding: 8px;">{escape(payment.get_status_display())}</td>'
                 )
@@ -1647,8 +1689,9 @@ try:
             html_parts.append("</table>")
 
             if obj.payments.count() > 10:
+                count = escape(str(obj.payments.count()))
                 html_parts.append(
-                    f'<p style="margin-top: 10px;"><em>Showing 10 of {escape(str(obj.payments.count()))} payments</em></p>'
+                    f'<p style="margin-top: 10px;"><em>Showing 10 of {count} payments</em></p>'
                 )
 
             return format_html("".join(html_parts))

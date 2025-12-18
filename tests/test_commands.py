@@ -5,11 +5,10 @@ Tests for management commands.
 import io
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from django.core.management import call_command
-from django.core.management.base import CommandError
 from django.utils import timezone
 
 from django_iyzico.models import PaymentStatus
@@ -35,14 +34,14 @@ class TestSyncIyzicoPaymentsCommand:
     def test_sync_command_with_payments(self, payment_model):
         """Test sync command with payments."""
         # Create test payments
-        payment1 = payment_model.objects.create(
+        payment_model.objects.create(
             payment_id="test-payment-1",
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
         )
 
-        payment2 = payment_model.objects.create(
+        payment_model.objects.create(
             payment_id="test-payment-2",
             conversation_id="conv-2",
             amount=Decimal("200.00"),
@@ -63,7 +62,7 @@ class TestSyncIyzicoPaymentsCommand:
 
     def test_sync_command_dry_run(self, payment_model):
         """Test sync command in dry-run mode."""
-        payment = payment_model.objects.create(
+        payment_model.objects.create(
             payment_id="test-payment",
             conversation_id="conv-1",
             amount=Decimal("100.00"),

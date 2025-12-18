@@ -19,20 +19,16 @@ Table of Contents:
 """
 
 from decimal import Decimal
-from typing import List, Dict, Optional
+from typing import List
 
-from django.shortcuts import render
+from django import forms
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.views import View
 from django.views.generic import FormView
-from django import forms
 
 from django_iyzico.installment_client import InstallmentClient
-from django_iyzico.installment_utils import (
-    format_installment_display,
-    get_recommended_installment,
-)
-
+from django_iyzico.installment_utils import format_installment_display
 
 # ============================================================================
 # Example 1: Basic Installment Options Retrieval
@@ -199,10 +195,8 @@ def example_4_process_payment_with_installment():
 
     Demonstrates storing installment data with the payment.
     """
-    from django_iyzico.client import IyzicoClient
-
     # Initialize clients
-    iyzico_client = IyzicoClient()
+    # iyzico_client = IyzicoClient()  # Would be used for actual payment processing
     installment_client = InstallmentClient()
 
     # Payment details
@@ -221,13 +215,16 @@ def example_4_process_payment_with_installment():
         raise ValueError("Selected installment option not available")
 
     # Step 2: Prepare payment data
-    payment_data = {
-        "amount": str(amount),
-        "installment": selected_installment,
-        # ... other payment fields (card, buyer, basket, etc.)
-    }
+    # payment_data would be prepared for actual payment processing
+    # payment_data = {
+    #     "amount": str(amount),
+    #     "installment": selected_installment,
+    #     # ... other payment fields (card, buyer, basket, etc.)
+    # }
 
     # Step 3: Process payment through Iyzico
+    # from django_iyzico.client import IyzicoClient
+    # iyzico_client = IyzicoClient()
     # payment_response = iyzico_client.create_payment(payment_data)
 
     # Step 4: Store installment information with payment
@@ -490,9 +487,10 @@ class PaymentFormView(FormView):
     def form_valid(self, form):
         """Process valid form."""
         # Get installment option from form
-        installment_option = form.installment_option
+        # installment_option = form.installment_option
 
         # Process payment with installment details
+        # The installment option would be used here for payment processing
         # ...
 
         return super().form_valid(form)
@@ -630,6 +628,7 @@ def example_9_admin_customization():
     Shows how to extend the admin interface.
     """
     from django.contrib import admin
+
     from django_iyzico.admin import IyzicoPaymentAdminMixin
 
     class CustomPaymentAdmin(IyzicoPaymentAdminMixin, admin.ModelAdmin):

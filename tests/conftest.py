@@ -2,9 +2,6 @@
 
 import pytest
 from django.conf import settings
-from django.core.management import call_command
-from django.db import connection
-from django.db.migrations.executor import MigrationExecutor
 
 
 @pytest.fixture(scope="session")
@@ -16,6 +13,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
     for the concrete test models programmatically using schema editor.
     """
     from django.db import connection
+
     from tests.models import TestPayment
 
     with django_db_blocker.unblock():

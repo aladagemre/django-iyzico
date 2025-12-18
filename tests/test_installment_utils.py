@@ -4,23 +4,23 @@ Tests for installment utility functions.
 Tests all utility functions in installment_utils.py.
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from django_iyzico.installment_utils import (
     calculate_installment_payment,
-    format_installment_display,
-    validate_installment_count,
-    get_common_installment_options,
-    calculate_zero_interest_threshold,
-    is_zero_interest,
-    compare_installment_options,
-    group_installments_by_rate,
     calculate_savings_vs_single_payment,
-    get_recommended_installment,
+    calculate_zero_interest_threshold,
+    compare_installment_options,
+    format_installment_display,
     format_installment_table,
+    get_common_installment_options,
+    get_recommended_installment,
+    group_installments_by_rate,
+    is_zero_interest,
+    validate_installment_count,
 )
-
 
 # ============================================================================
 # Calculate Installment Payment Tests

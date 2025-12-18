@@ -13,8 +13,6 @@ Tests for critical security and data integrity functionality:
 """
 
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
@@ -34,10 +32,10 @@ class TestConcurrentBillingProtection(TestCase):
     def setUp(self):
         """Set up test fixtures."""
         from django_iyzico.subscription_models import (
+            PaymentMethod,
             Subscription,
             SubscriptionPlan,
             SubscriptionStatus,
-            PaymentMethod,
         )
 
         # Create test user with required profile fields
@@ -138,7 +136,8 @@ class TestConcurrentBillingProtection(TestCase):
         payments_after = SubscriptionPayment.objects.filter(subscription=self.subscription).count()
 
         # Either all return the same payment (idempotent) or only one succeeds
-        successful_payments = [r for r in results if r.status == "success"]
+        # Count successful payments (not stored since we just need to verify assertion)
+        _ = [r for r in results if r.status == "success"]
 
         # At most one successful payment should be created
         assert (
@@ -285,8 +284,8 @@ class TestBINValidation(TestCase):
 
     def test_test_bins_rejected_in_production(self):
         """Test that known test BINs are rejected when not allowed."""
-        from django_iyzico.installment_client import validate_bin_number
         from django_iyzico.exceptions import IyzicoValidationException
+        from django_iyzico.installment_client import validate_bin_number
 
         test_bins = ["000000", "111111", "123456"]
 
@@ -297,8 +296,8 @@ class TestBINValidation(TestCase):
 
     def test_invalid_mii_rejected(self):
         """Test that invalid MII (first digit) is rejected."""
-        from django_iyzico.installment_client import validate_bin_number
         from django_iyzico.exceptions import IyzicoValidationException
+        from django_iyzico.installment_client import validate_bin_number
 
         # First digit must be 3-6 for payment cards
         invalid_bins = ["112233", "223344", "778899", "990011"]
@@ -310,8 +309,8 @@ class TestBINValidation(TestCase):
 
     def test_invalid_length_rejected(self):
         """Test that BINs with wrong length are rejected."""
-        from django_iyzico.installment_client import validate_bin_number
         from django_iyzico.exceptions import IyzicoValidationException
+        from django_iyzico.installment_client import validate_bin_number
 
         invalid_lengths = ["12345", "1234567", ""]
 
@@ -337,8 +336,8 @@ class TestAmountValidation(TestCase):
 
     def test_amount_too_high_rejected(self):
         """Test that amounts exceeding limit are rejected."""
-        from django_iyzico.utils import validate_amount
         from django_iyzico.exceptions import ValidationError
+        from django_iyzico.utils import validate_amount
 
         # TRY limit is 1,000,000
         with pytest.raises(ValidationError) as exc_info:
@@ -347,8 +346,8 @@ class TestAmountValidation(TestCase):
 
     def test_amount_too_low_rejected(self):
         """Test that amounts below minimum are rejected."""
-        from django_iyzico.utils import validate_amount
         from django_iyzico.exceptions import ValidationError
+        from django_iyzico.utils import validate_amount
 
         with pytest.raises(ValidationError) as exc_info:
             validate_amount("0.001", "TRY")
@@ -356,8 +355,8 @@ class TestAmountValidation(TestCase):
 
     def test_negative_amount_rejected(self):
         """Test that negative amounts are rejected."""
-        from django_iyzico.utils import validate_amount
         from django_iyzico.exceptions import ValidationError
+        from django_iyzico.utils import validate_amount
 
         with pytest.raises(ValidationError):
             validate_amount("-10.00", "TRY")
@@ -422,6 +421,7 @@ class TestWebhookSecurity(TestCase):
     def test_webhook_requires_whitelist_in_production(self):
         """Test that webhooks are rejected without IP whitelist in production."""
         from django.test import RequestFactory
+
         from django_iyzico.views import webhook_view
 
         factory = RequestFactory()
@@ -440,9 +440,10 @@ class TestWebhookSecurity(TestCase):
 
     def test_webhook_signature_validation(self):
         """Test webhook signature validation."""
-        from django_iyzico.utils import verify_webhook_signature
         import hashlib
         import hmac
+
+        from django_iyzico.utils import verify_webhook_signature
 
         payload = b'{"event": "payment.success", "paymentId": "12345"}'
         secret = "test_webhook_secret"

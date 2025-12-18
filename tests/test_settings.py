@@ -2,6 +2,7 @@
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
+
 from django_iyzico.settings import IyzicoSettings, get_setting
 
 

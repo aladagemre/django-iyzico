@@ -8,8 +8,8 @@ Add to your project's urls.py:
 from django.urls import path
 
 from .installment_views import (
-    InstallmentOptionsView,
     BestInstallmentOptionsView,
+    InstallmentOptionsView,
     ValidateInstallmentView,
 )
 
@@ -40,6 +40,7 @@ urlpatterns = [
 # Optional: DRF router configuration
 try:
     from rest_framework.routers import DefaultRouter
+
     from .installment_views import InstallmentViewSet
 
     if InstallmentViewSet:

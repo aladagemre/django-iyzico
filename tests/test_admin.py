@@ -5,16 +5,14 @@ Tests the IyzicoPaymentAdminMixin and all admin features.
 """
 
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.http import HttpRequest
 from django.test import RequestFactory
-from django.utils import timezone
 
 from django_iyzico.admin import IyzicoPaymentAdminMixin
 from django_iyzico.models import PaymentStatus
@@ -351,8 +349,8 @@ class TestRefundAction:
     def test_refund_payment_no_method(self, payment_admin, admin_request, sample_payment):
         """Test refund action when model doesn't have process_refund."""
         # Use patch to remove the method
-        from tests.models import TestPayment
         from django_iyzico.models import AbstractIyzicoPayment
+        from tests.models import TestPayment
 
         # Save original method
         original_method = AbstractIyzicoPayment.process_refund

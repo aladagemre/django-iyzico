@@ -25,7 +25,7 @@ import random
 import uuid
 from decimal import Decimal
 
-from locust import HttpUser, task, between, events
+from locust import HttpUser, LoadTestShape, between, events, task
 from locust.exception import RescheduleTask
 
 
@@ -178,7 +178,7 @@ class IyzicoPaymentUser(HttpUser):
                 if data.get("status") == "success":
                     response.success()
                 else:
-                    response.failure(f"3DS initialization failed")
+                    response.failure("3DS initialization failed")
             else:
                 response.failure(f"HTTP {response.status_code}")
 
@@ -405,7 +405,6 @@ def on_test_stop(environment, **kwargs):
 
 
 # Custom shape for realistic load pattern
-from locust import LoadTestShape
 
 
 class StepLoadShape(LoadTestShape):

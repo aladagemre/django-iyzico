@@ -12,19 +12,16 @@ Security Note:
 
 import logging
 from decimal import Decimal, InvalidOperation
-from typing import Dict, Any
 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.views import View
 from django.views.decorators.http import require_http_methods
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
 
+from .exceptions import IyzicoAPIException, IyzicoValidationException
 from .installment_client import InstallmentClient
-from .exceptions import IyzicoValidationException, IyzicoAPIException
 from .utils import get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -473,10 +470,10 @@ def get_installment_options(request):
 
 # Optional: Django REST Framework ViewSet
 try:
-    from rest_framework import viewsets, status
+    from rest_framework import status, viewsets
     from rest_framework.decorators import action
-    from rest_framework.response import Response
     from rest_framework.permissions import IsAuthenticated
+    from rest_framework.response import Response
     from rest_framework.throttling import UserRateThrottle
 
     class InstallmentRateThrottle(UserRateThrottle):

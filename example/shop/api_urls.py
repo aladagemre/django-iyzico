@@ -2,8 +2,9 @@
 URL configuration for shop API (Django REST Framework).
 """
 
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 from . import api_views
 
 # Create router for ViewSets
