@@ -1,5 +1,15 @@
 """Django settings for testing django-iyzico."""
 
+import os
+import sys
+
+# Fail if this settings file is used outside of testing
+if 'pytest' not in sys.modules and 'TESTING' not in os.environ and 'test' not in sys.argv:
+    raise RuntimeError(
+        "Test settings should not be used outside of test environment. "
+        "Set TESTING=1 environment variable or use pytest."
+    )
+
 SECRET_KEY = "test-secret-key-for-django-iyzico"
 
 DEBUG = True

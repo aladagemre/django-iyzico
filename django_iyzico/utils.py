@@ -869,3 +869,45 @@ def calculate_paid_price_with_installments(
     total = base_price * (1 + (rate / 100) * installments)
 
     return total.quantize(Decimal("0.01"))
+
+
+def get_client_ip(request, trust_xff: Optional[bool] = None) -> str:
+    """
+    Get client IP address from Django request.
+
+    This is the centralized IP extraction function that respects the
+    IYZICO_TRUST_X_FORWARDED_FOR setting. All code in the package
+    should use this function for consistent security behavior.
+
+    Args:
+        request: Django HttpRequest object
+        trust_xff: Whether to trust X-Forwarded-For header.
+                   If None, uses iyzico_settings.trust_x_forwarded_for.
+                   Set to False to always use REMOTE_ADDR.
+
+    Returns:
+        Client IP address string (empty string if not available)
+
+    Security Note:
+        Only set trust_xff=True if your application is behind a trusted
+        reverse proxy that properly sets the X-Forwarded-For header.
+        Otherwise, attackers can spoof their IP address.
+
+    Example:
+        >>> from django_iyzico.utils import get_client_ip
+        >>> ip = get_client_ip(request)
+        >>> refund_response = payment.process_refund(ip_address=ip)
+    """
+    from .settings import iyzico_settings
+
+    if trust_xff is None:
+        trust_xff = iyzico_settings.trust_x_forwarded_for
+
+    if trust_xff:
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            # Take the first IP in the chain (client IP)
+            ip = x_forwarded_for.split(',')[0].strip()
+            return ip
+
+    return request.META.get('REMOTE_ADDR', '')

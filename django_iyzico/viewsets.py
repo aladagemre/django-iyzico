@@ -39,6 +39,7 @@ if HAS_DRF:
     )
     from .models import PaymentStatus
     from .exceptions import PaymentError
+    from .utils import get_client_ip
 
     class IyzicoPaymentViewSet(viewsets.ReadOnlyModelViewSet):
         """
@@ -189,20 +190,20 @@ if HAS_DRF:
                     "successful_amount": "8500.00"
                 }
             """
-            from django.db.models import Count, Sum
+            from django.db.models import Count, Sum, Q
 
             queryset = self.filter_queryset(self.get_queryset())
 
             stats = queryset.aggregate(
                 total=Count("id"),
-                successful=Count("id", filter=queryset.filter(status=PaymentStatus.SUCCESS).query),
-                failed=Count("id", filter=queryset.filter(status=PaymentStatus.FAILED).query),
-                pending=Count("id", filter=queryset.filter(
+                successful=Count("id", filter=Q(status=PaymentStatus.SUCCESS)),
+                failed=Count("id", filter=Q(status=PaymentStatus.FAILED)),
+                pending=Count("id", filter=Q(
                     status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING]
-                ).query),
+                )),
                 total_amount=Sum("amount"),
                 successful_amount=Sum(
-                    "amount", filter=queryset.filter(status=PaymentStatus.SUCCESS).query
+                    "amount", filter=Q(status=PaymentStatus.SUCCESS)
                 ),
             )
 
@@ -284,9 +285,16 @@ if HAS_DRF:
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Get client IP for audit trail (uses centralized function that respects settings)
+            ip_address = get_client_ip(request) or '127.0.0.1'
+
             # Process refund
             try:
-                refund_response = payment.process_refund(amount=amount, reason=reason)
+                refund_response = payment.process_refund(
+                    ip_address=ip_address,
+                    amount=amount,
+                    reason=reason,
+                )
 
                 if refund_response.is_successful():
                     return Response(

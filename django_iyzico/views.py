@@ -21,32 +21,79 @@ from .signals import (
     threeds_failed,
     webhook_received,
 )
-from .utils import verify_webhook_signature, is_ip_allowed
+from .utils import verify_webhook_signature, is_ip_allowed, get_client_ip
 
 logger = logging.getLogger(__name__)
 
+# Rate limiting constants
+THREEDS_CALLBACK_RATE_LIMIT = 30  # requests per minute per IP
+THREEDS_CALLBACK_RATE_WINDOW = 60  # seconds
+WEBHOOK_RATE_LIMIT = 100  # requests per minute per IP
+WEBHOOK_RATE_WINDOW = 60  # seconds
 
-def get_client_ip(request: HttpRequest) -> str:
+
+def _validate_redirect_url(url: Optional[str], request: HttpRequest) -> Optional[str]:
     """
-    Get client IP address from request.
+    Validate that redirect URL is safe (relative or same host).
 
-    Checks X-Forwarded-For header first (for proxies/load balancers),
-    then falls back to REMOTE_ADDR.
+    Security: Rejects external URLs and handles wildcard ALLOWED_HOSTS safely
+    to prevent open redirect attacks.
 
     Args:
-        request: HTTP request
+        url: URL to validate
+        request: HTTP request for host comparison
 
     Returns:
-        Client IP address
+        Safe URL or None if URL is invalid/external
     """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        # X-Forwarded-For can contain multiple IPs, take the first one
-        ip = x_forwarded_for.split(',')[0].strip()
-    else:
-        ip = request.META.get('REMOTE_ADDR', '')
+    from urllib.parse import urlparse
 
-    return ip
+    if not url:
+        return None
+
+    parsed = urlparse(url)
+
+    # Allow relative URLs (no scheme or netloc)
+    if not parsed.scheme and not parsed.netloc:
+        return url
+
+    # Check if host matches request host or is in ALLOWED_HOSTS
+    from django.conf import settings as django_settings
+
+    allowed_hosts = getattr(django_settings, 'ALLOWED_HOSTS', [])
+    request_host = request.get_host().split(':')[0]  # Remove port if present
+
+    # SECURITY: If ALLOWED_HOSTS contains wildcard '*', reject absolute URL redirects
+    # to prevent open redirect attacks (only allow relative URLs in this case)
+    if '*' in allowed_hosts:
+        logger.warning(
+            "ALLOWED_HOSTS contains wildcard '*' - rejecting absolute URL redirect "
+            f"to prevent open redirect vulnerability: {url}"
+        )
+        return None
+
+    if parsed.netloc:
+        netloc_host = parsed.netloc.split(':')[0]  # Remove port if present
+
+        # Allow if matches request host
+        if netloc_host == request_host:
+            return url
+
+        # Allow if in ALLOWED_HOSTS (excluding wildcards)
+        if netloc_host in allowed_hosts and netloc_host != '*':
+            return url
+
+        # Allow subdomain wildcard match (e.g., '.example.com' matches 'sub.example.com')
+        for allowed in allowed_hosts:
+            if allowed.startswith('.') and netloc_host.endswith(allowed):
+                return url
+
+    # Reject external URLs
+    logger.warning(f"Rejected redirect to external URL: {url}")
+    return None
+
+
+# get_client_ip is now imported from utils for centralized IP extraction
 
 
 @csrf_exempt
@@ -72,19 +119,45 @@ def threeds_callback_view(request: HttpRequest) -> HttpResponse:
     Note:
         This view is CSRF exempt because it's called by an external service (Iyzico).
         Users should implement their own success/failure redirect URLs.
+
+    Security:
+        - Rate limited to 30 requests per minute per IP
+        - Uses consistent error messages to prevent token enumeration
     """
+    from django.core.cache import cache
+
+    # Rate limiting - prevent brute force attacks
+    client_ip = get_client_ip(request)
+    rate_key = f"threeds_callback_rate_{client_ip}"
+    request_count = cache.get(rate_key, 0)
+
+    if request_count >= THREEDS_CALLBACK_RATE_LIMIT:
+        logger.warning(f"3DS callback rate limit exceeded for IP {client_ip}")
+        return _handle_3ds_error(
+            request,
+            "Too many requests. Please try again later.",
+            error_code="RATE_LIMIT_EXCEEDED",
+        )
+
+    cache.set(rate_key, request_count + 1, THREEDS_CALLBACK_RATE_WINDOW)
+
     # Get token from either GET or POST
     token = request.GET.get("token") or request.POST.get("paymentId")
+
+    # Use consistent error message to prevent token enumeration
+    generic_error_message = "Payment processing failed. Please try again."
 
     if not token:
         logger.error("3DS callback received without token")
         return _handle_3ds_error(
             request,
-            "Missing payment token",
-            error_code="MISSING_TOKEN",
+            generic_error_message,
+            error_code="PAYMENT_FAILED",
         )
 
-    logger.info(f"3DS callback received - token={token[:10]}...")
+    # Safe token logging - check length before accessing prefix
+    token_log = f"token_prefix={token[:6]}***" if len(token) >= 6 else "token=<too_short>"
+    logger.info(f"3DS callback received - {token_log}")
 
     try:
         # Complete 3D Secure payment
@@ -118,7 +191,7 @@ def threeds_callback_view(request: HttpRequest) -> HttpResponse:
                 f"conversation_id={response.conversation_id}"
             )
 
-            # Trigger signal for failed payment
+            # Trigger signal for failed payment (internal handlers get full details)
             threeds_failed.send(
                 sender=None,
                 conversation_id=response.conversation_id,
@@ -127,18 +200,18 @@ def threeds_callback_view(request: HttpRequest) -> HttpResponse:
                 request=request,
             )
 
-            # Redirect to error page
+            # Redirect to error page with generic message (prevents token enumeration)
             return _handle_3ds_error(
                 request,
-                response.error_message,
-                error_code=response.error_code,
+                generic_error_message,
+                error_code="PAYMENT_FAILED",
                 conversation_id=response.conversation_id,
             )
 
     except ThreeDSecureError as e:
         logger.error(f"3DS completion error: {str(e)}", exc_info=True)
 
-        # Trigger signal for failed payment
+        # Trigger signal for failed payment (internal handlers get full details)
         threeds_failed.send(
             sender=None,
             conversation_id=None,
@@ -147,16 +220,17 @@ def threeds_callback_view(request: HttpRequest) -> HttpResponse:
             request=request,
         )
 
+        # User gets generic message (prevents token enumeration)
         return _handle_3ds_error(
             request,
-            str(e),
-            error_code=e.error_code,
+            generic_error_message,
+            error_code="PAYMENT_FAILED",
         )
 
     except Exception as e:
         logger.error(f"Unexpected error in 3DS callback: {str(e)}", exc_info=True)
 
-        # Trigger signal for failed payment
+        # Trigger signal for failed payment (internal handlers get full details)
         threeds_failed.send(
             sender=None,
             conversation_id=None,
@@ -165,10 +239,11 @@ def threeds_callback_view(request: HttpRequest) -> HttpResponse:
             request=request,
         )
 
+        # User gets generic message (prevents token enumeration)
         return _handle_3ds_error(
             request,
-            "An unexpected error occurred",
-            error_code="UNEXPECTED_ERROR",
+            generic_error_message,
+            error_code="PAYMENT_FAILED",
         )
 
 
@@ -206,35 +281,71 @@ def webhook_view(request: HttpRequest) -> JsonResponse:
     Security:
         - Optional signature validation via IYZICO_WEBHOOK_SECRET setting
         - Optional IP whitelisting via IYZICO_WEBHOOK_ALLOWED_IPS setting
+        - Rate limiting to prevent abuse
     """
+    from django.core.cache import cache
+
     logger.info("Webhook received")
 
     # Get client IP
     client_ip = get_client_ip(request)
     logger.debug(f"Webhook from IP: {client_ip}")
 
-    # Verify IP whitelist
-    allowed_ips = iyzico_settings.webhook_allowed_ips
+    # Rate limiting - prevent abuse
+    rate_key = f"webhook_rate_{client_ip}"
+    request_count = cache.get(rate_key, 0)
 
-    # SECURITY: In production, require IP whitelist to be configured
-    if not allowed_ips:
-        from django.conf import settings as django_settings
-        if not getattr(django_settings, 'DEBUG', False):
+    if request_count >= WEBHOOK_RATE_LIMIT:
+        logger.warning(f"Webhook rate limit exceeded for IP {client_ip}")
+        # Return 200 to prevent webhook retry storms from payment provider
+        # Error is indicated in the response body for logging/debugging
+        return JsonResponse(
+            {"status": "error", "message": "Rate limit exceeded"},
+            status=200,
+        )
+
+    cache.set(rate_key, request_count + 1, WEBHOOK_RATE_WINDOW)
+
+    # Verify IP whitelist and webhook secret
+    allowed_ips = iyzico_settings.webhook_allowed_ips
+    webhook_secret = iyzico_settings.webhook_secret
+
+    from django.conf import settings as django_settings
+    is_debug = getattr(django_settings, 'DEBUG', False)
+
+    # SECURITY: In production, require BOTH IP whitelist AND webhook secret
+    if not is_debug:
+        security_issues = []
+        if not allowed_ips:
+            security_issues.append("IYZICO_WEBHOOK_ALLOWED_IPS not configured")
+        if not webhook_secret:
+            security_issues.append("IYZICO_WEBHOOK_SECRET not configured")
+
+        if security_issues:
             logger.error(
-                "SECURITY WARNING: Webhook IP whitelist not configured in production! "
-                "Set IYZICO_WEBHOOK_ALLOWED_IPS in your settings. "
-                "Rejecting webhook to prevent unauthorized access."
+                f"SECURITY ERROR: Webhook security not properly configured! "
+                f"Issues: {', '.join(security_issues)}. "
+                f"Both IP whitelist AND webhook secret are required in production. "
+                f"Rejecting webhook to prevent unauthorized access."
             )
             return JsonResponse(
                 {"status": "error", "message": "Webhook security not configured"},
                 status=403,
             )
-        else:
+    else:
+        # Debug mode warnings
+        if not allowed_ips:
             logger.warning(
                 "Webhook IP whitelist not configured. Allowing all IPs in DEBUG mode. "
                 "Configure IYZICO_WEBHOOK_ALLOWED_IPS for production."
             )
+        if not webhook_secret:
+            logger.warning(
+                "Webhook secret not configured. Skipping signature validation in DEBUG mode. "
+                "Configure IYZICO_WEBHOOK_SECRET for production."
+            )
 
+    # Verify IP whitelist (if configured)
     if allowed_ips and not is_ip_allowed(client_ip, allowed_ips):
         logger.warning(f"Webhook rejected - IP {client_ip} not in whitelist")
         return JsonResponse(
@@ -243,7 +354,6 @@ def webhook_view(request: HttpRequest) -> JsonResponse:
         )
 
     # Verify webhook signature (if configured)
-    webhook_secret = iyzico_settings.webhook_secret
     if webhook_secret:
         signature = request.META.get('HTTP_X_IYZICO_SIGNATURE', '')
         payload = request.body
@@ -326,18 +436,28 @@ def _handle_3ds_success(request: HttpRequest, response) -> HttpResponse:
     """
     from django.conf import settings
 
-    # Try to get success URL from various sources
+    # Try to get success URL from various sources, with validation
+    session_url = _validate_redirect_url(request.session.get("iyzico_success_url"), request)
+    settings_url = _validate_redirect_url(getattr(settings, "IYZICO_SUCCESS_URL", None), request)
+
     success_url = (
-        request.session.get("iyzico_success_url")
-        or getattr(settings, "IYZICO_SUCCESS_URL", None)
+        session_url
+        or settings_url
         or "/payment/success/"
     )
 
-    # Clean up session
-    if "iyzico_success_url" in request.session:
-        del request.session["iyzico_success_url"]
-    if "iyzico_error_url" in request.session:
-        del request.session["iyzico_error_url"]
+    # Clean up session - remove URL redirects and previous payment data (consistent with error handler)
+    payment_session_keys = [
+        'iyzico_success_url',
+        'iyzico_error_url',
+        'last_payment_id',
+        'last_payment_status',
+        'last_payment_error',
+        'last_payment_error_code',
+        'last_payment_conversation_id',
+    ]
+    for key in payment_session_keys:
+        request.session.pop(key, None)
 
     # Add payment info to session for success page
     request.session["last_payment_id"] = response.payment_id
@@ -372,18 +492,28 @@ def _handle_3ds_error(
     """
     from django.conf import settings
 
-    # Try to get error URL from various sources
+    # Try to get error URL from various sources, with validation
+    session_url = _validate_redirect_url(request.session.get("iyzico_error_url"), request)
+    settings_url = _validate_redirect_url(getattr(settings, "IYZICO_ERROR_URL", None), request)
+
     error_url = (
-        request.session.get("iyzico_error_url")
-        or getattr(settings, "IYZICO_ERROR_URL", None)
+        session_url
+        or settings_url
         or "/payment/error/"
     )
 
-    # Clean up session
-    if "iyzico_success_url" in request.session:
-        del request.session["iyzico_success_url"]
-    if "iyzico_error_url" in request.session:
-        del request.session["iyzico_error_url"]
+    # Clean up session - remove URL redirects and previous payment data
+    payment_session_keys = [
+        'iyzico_success_url',
+        'iyzico_error_url',
+        'last_payment_id',
+        'last_payment_status',
+        'last_payment_error',
+        'last_payment_error_code',
+        'last_payment_conversation_id',
+    ]
+    for key in payment_session_keys:
+        request.session.pop(key, None)
 
     # Add error info to session for error page
     request.session["last_payment_status"] = "failed"

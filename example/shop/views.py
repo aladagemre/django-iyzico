@@ -2,8 +2,10 @@
 Regular Django views for shop app.
 """
 
-from decimal import Decimal
+import logging
+from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.generic import ListView, DetailView
@@ -13,7 +15,10 @@ from django_iyzico.exceptions import PaymentError
 from django_iyzico.subscription_models import SubscriptionPlan
 from django_iyzico.subscription_manager import SubscriptionManager
 from django_iyzico.installment_client import InstallmentClient
+from django_iyzico.utils import get_client_ip
 from .models import Product, Order, OrderItem
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -61,11 +66,30 @@ def checkout_view(request):
     """
 
     if request.method == 'POST':
-        # Get form data
+        # Get form data with safe type conversions
         product_id = request.POST.get('product_id')
-        quantity = int(request.POST.get('quantity', 1))
         currency = request.POST.get('currency', 'TRY')
-        installment_count = int(request.POST.get('installment', 1))
+
+        # Safe int conversions with validation
+        try:
+            quantity = int(request.POST.get('quantity', 1))
+            if quantity < 1:
+                quantity = 1
+            elif quantity > 100:  # Reasonable upper limit
+                quantity = 100
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid quantity value: {request.POST.get('quantity')}")
+            quantity = 1
+
+        try:
+            installment_count = int(request.POST.get('installment', 1))
+            if installment_count < 1:
+                installment_count = 1
+            elif installment_count > 12:  # Max 12 installments
+                installment_count = 12
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid installment value: {request.POST.get('installment')}")
+            installment_count = 1
 
         # Get product
         product = get_object_or_404(Product, id=product_id, is_active=True)
@@ -106,47 +130,84 @@ def checkout_view(request):
         # Prepare payment data
         client = IyzicoClient()
 
-        payment_data = {
+        # Order data (required)
+        order_data = {
             'price': str(total),
             'paidPrice': str(total),
             'currency': currency,
             'basketId': order.order_number,
+            'conversationId': order.conversation_id,
             'installment': installment_count,
-            'paymentCard': {
-                'cardHolderName': request.POST.get('card_holder'),
-                'cardNumber': request.POST.get('card_number'),
-                'expireMonth': request.POST.get('expire_month'),
-                'expireYear': request.POST.get('expire_year'),
-                'cvc': request.POST.get('cvc'),
-            },
-            'buyer': {
-                'id': str(request.user.id),
-                'name': request.user.first_name or 'Customer',
-                'surname': request.user.last_name or 'User',
-                'email': request.user.email,
-                'identityNumber': '11111111111',
-                'registrationAddress': request.POST.get('address', 'Address'),
-                'city': request.POST.get('city', 'Istanbul'),
-                'country': 'Turkey',
-                'zipCode': '34000',
-            },
-            'shippingAddress': {
-                'address': request.POST.get('address', 'Address'),
-                'city': request.POST.get('city', 'Istanbul'),
-                'country': 'Turkey',
-                'zipCode': '34000',
-            },
-            'billingAddress': {
-                'address': request.POST.get('address', 'Address'),
-                'city': request.POST.get('city', 'Istanbul'),
-                'country': 'Turkey',
-                'zipCode': '34000',
-            },
+        }
+
+        # Payment card data (required)
+        payment_card = {
+            'cardHolderName': request.POST.get('card_holder'),
+            'cardNumber': request.POST.get('card_number'),
+            'expireMonth': request.POST.get('expire_month'),
+            'expireYear': request.POST.get('expire_year'),
+            'cvc': request.POST.get('cvc'),
+        }
+
+        # Validate required card fields before API call
+        required_card_fields = ['card_holder', 'card_number', 'expire_month', 'expire_year', 'cvc']
+        missing_fields = [f for f in required_card_fields if not request.POST.get(f)]
+        if missing_fields:
+            logger.warning(f"Missing card fields in checkout: {missing_fields}")
+            messages.error(request, 'Please fill in all card details.')
+            return redirect('checkout')
+
+        # Basic card number validation (length check only - actual validation done by Iyzico)
+        card_number = request.POST.get('card_number', '').replace(' ', '').replace('-', '')
+        if not card_number.isdigit() or len(card_number) < 13 or len(card_number) > 19:
+            messages.error(request, 'Invalid card number format.')
+            return redirect('checkout')
+
+        # Buyer information (required)
+        # IMPORTANT: In production, identity_number should come from user profile
+        # This is required for Turkish regulations.
+        identity_number = request.POST.get('identity_number')
+        if not identity_number:
+            messages.error(request, 'Identity number is required for Turkish regulations.')
+            return redirect('checkout')
+
+        buyer = {
+            'id': str(request.user.id),
+            'name': request.user.first_name or 'Customer',
+            'surname': request.user.last_name or 'User',
+            'email': request.user.email,
+            'identityNumber': identity_number,
+            'registrationAddress': request.POST.get('address', 'Address'),
+            'city': request.POST.get('city', 'Istanbul'),
+            'country': 'Turkey',
+            'zipCode': '34000',
+        }
+
+        # Billing address (required)
+        billing_address = {
+            'address': request.POST.get('address', 'Address'),
+            'city': request.POST.get('city', 'Istanbul'),
+            'country': 'Turkey',
+            'zipCode': '34000',
+        }
+
+        # Shipping address (optional, defaults to billing address)
+        shipping_address = {
+            'address': request.POST.get('address', 'Address'),
+            'city': request.POST.get('city', 'Istanbul'),
+            'country': 'Turkey',
+            'zipCode': '34000',
         }
 
         try:
-            # Process payment
-            response = client.create_payment(payment_data)
+            # Process payment with correct method signature
+            response = client.create_payment(
+                order_data=order_data,
+                payment_card=payment_card,
+                buyer=buyer,
+                billing_address=billing_address,
+                shipping_address=shipping_address,
+            )
 
             if response.is_successful():
                 # Update order from response
@@ -167,6 +228,7 @@ def checkout_view(request):
                 return redirect('checkout')
 
         except PaymentError as e:
+            logger.error(f"Payment error in checkout: {e}", exc_info=True)
             messages.error(request, f'Payment error: {str(e)}')
             return redirect('checkout')
 
@@ -190,7 +252,15 @@ def get_installment_options(request):
 
     if request.method == 'POST':
         bin_number = request.POST.get('bin_number', '')[:6]
-        price = Decimal(request.POST.get('price', '0'))
+
+        # Safe Decimal conversion
+        try:
+            price = Decimal(request.POST.get('price', '0'))
+            if price <= 0:
+                return JsonResponse({'error': 'Invalid price'}, status=400)
+        except (InvalidOperation, ValueError, TypeError) as e:
+            logger.warning(f"Invalid price value: {request.POST.get('price')} - {e}")
+            return JsonResponse({'error': 'Invalid price format'}, status=400)
 
         if len(bin_number) != 6:
             return JsonResponse({'error': 'Invalid BIN number'}, status=400)
@@ -296,13 +366,20 @@ def subscribe_view(request, plan_id):
             'cvc': request.POST.get('cvc'),
         }
 
+        # IMPORTANT: In production, identity_number should come from user profile
+        # This is required for Turkish regulations.
+        identity_number = request.POST.get('identity_number')
+        if not identity_number:
+            messages.error(request, 'Identity number is required for Turkish regulations.')
+            return redirect('subscribe', plan_id=plan_id)
+
         buyer_info = {
             'name': request.user.first_name or 'Customer',
             'surname': request.user.last_name or 'User',
             'email': request.user.email,
-            'identityNumber': '11111111111',
-            'registrationAddress': 'Address',
-            'city': 'Istanbul',
+            'identityNumber': identity_number,
+            'registrationAddress': request.POST.get('address', 'Address'),
+            'city': request.POST.get('city', 'Istanbul'),
             'country': 'Turkey',
             'zipCode': '34000',
         }
@@ -323,7 +400,8 @@ def subscribe_view(request, plan_id):
                 return redirect('subscription_plans')
 
         except Exception as e:
-            messages.error(request, f'Error: {str(e)}')
+            logger.exception(f"Error creating subscription for plan {plan_id}: {e}")
+            messages.error(request, 'An error occurred while processing your subscription.')
             return redirect('subscribe', plan_id=plan_id)
 
     return render(request, 'shop/subscribe.html', {'plan': plan})
@@ -367,19 +445,43 @@ def refund_request_view(request, order_id):
         return redirect('order_detail', pk=order_id)
 
     if request.method == 'POST':
-        refund_amount = request.POST.get('refund_amount')
+        refund_amount_str = request.POST.get('refund_amount')
         reason = request.POST.get('reason', '')
 
+        # Get client IP address for audit trail (uses centralized function)
+        ip_address = get_client_ip(request) or '127.0.0.1'
+
         try:
+            refund_amount = None
+            if refund_amount_str:
+                # Safe Decimal conversion for partial refund
+                try:
+                    refund_amount = Decimal(refund_amount_str)
+                    if refund_amount <= 0:
+                        messages.error(request, 'Refund amount must be greater than zero.')
+                        return render(request, 'shop/refund_request.html', {'order': order})
+                    # Validate refund amount doesn't exceed order amount
+                    if refund_amount > order.amount:
+                        messages.error(request, 'Refund amount cannot exceed order amount.')
+                        return render(request, 'shop/refund_request.html', {'order': order})
+                except (InvalidOperation, ValueError, TypeError) as e:
+                    logger.warning(f"Invalid refund amount: {refund_amount_str} - {e}")
+                    messages.error(request, 'Invalid refund amount format.')
+                    return render(request, 'shop/refund_request.html', {'order': order})
+
             if refund_amount:
                 # Partial refund
                 response = order.process_refund(
-                    amount=Decimal(refund_amount),
+                    ip_address=ip_address,
+                    amount=refund_amount,
                     reason=reason
                 )
             else:
                 # Full refund
-                response = order.process_refund(reason=reason)
+                response = order.process_refund(
+                    ip_address=ip_address,
+                    reason=reason
+                )
 
             if response.is_successful():
                 messages.success(request, 'Refund processed successfully!')
@@ -388,6 +490,7 @@ def refund_request_view(request, order_id):
                 messages.error(request, f'Refund failed: {response.error_message}')
 
         except Exception as e:
-            messages.error(request, f'Error: {str(e)}')
+            logger.exception(f"Error processing refund for order {order_id}: {e}")
+            messages.error(request, 'An error occurred while processing your refund.')
 
     return render(request, 'shop/refund_request.html', {'order': order})
