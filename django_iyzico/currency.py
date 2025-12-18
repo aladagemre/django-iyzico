@@ -27,10 +27,10 @@ class Currency(str, Enum):
     Based on Iyzico API documentation and ISO 4217 standard.
     """
 
-    TRY = 'TRY'  # Turkish Lira (default)
-    USD = 'USD'  # US Dollar
-    EUR = 'EUR'  # Euro
-    GBP = 'GBP'  # British Pound Sterling
+    TRY = "TRY"  # Turkish Lira (default)
+    USD = "USD"  # US Dollar
+    EUR = "EUR"  # Euro
+    GBP = "GBP"  # British Pound Sterling
 
     @classmethod
     def choices(cls) -> List[Tuple[str, str]]:
@@ -41,10 +41,10 @@ class Currency(str, Enum):
             List of (value, label) tuples
         """
         return [
-            (cls.TRY.value, 'Turkish Lira (TRY)'),
-            (cls.USD.value, 'US Dollar (USD)'),
-            (cls.EUR.value, 'Euro (EUR)'),
-            (cls.GBP.value, 'British Pound Sterling (GBP)'),
+            (cls.TRY.value, "Turkish Lira (TRY)"),
+            (cls.USD.value, "US Dollar (USD)"),
+            (cls.EUR.value, "Euro (EUR)"),
+            (cls.GBP.value, "British Pound Sterling (GBP)"),
         ]
 
     @classmethod
@@ -61,36 +61,36 @@ class Currency(str, Enum):
 # Currency display information
 CURRENCY_INFO = {
     Currency.TRY: {
-        'code': 'TRY',
-        'name': 'Turkish Lira',
-        'symbol': '₺',
-        'decimal_places': 2,
-        'thousands_separator': '.',
-        'decimal_separator': ',',
+        "code": "TRY",
+        "name": "Turkish Lira",
+        "symbol": "₺",
+        "decimal_places": 2,
+        "thousands_separator": ".",
+        "decimal_separator": ",",
     },
     Currency.USD: {
-        'code': 'USD',
-        'name': 'US Dollar',
-        'symbol': '$',
-        'decimal_places': 2,
-        'thousands_separator': ',',
-        'decimal_separator': '.',
+        "code": "USD",
+        "name": "US Dollar",
+        "symbol": "$",
+        "decimal_places": 2,
+        "thousands_separator": ",",
+        "decimal_separator": ".",
     },
     Currency.EUR: {
-        'code': 'EUR',
-        'name': 'Euro',
-        'symbol': '€',
-        'decimal_places': 2,
-        'thousands_separator': '.',
-        'decimal_separator': ',',
+        "code": "EUR",
+        "name": "Euro",
+        "symbol": "€",
+        "decimal_places": 2,
+        "thousands_separator": ".",
+        "decimal_separator": ",",
     },
     Currency.GBP: {
-        'code': 'GBP',
-        'name': 'British Pound Sterling',
-        'symbol': '£',
-        'decimal_places': 2,
-        'thousands_separator': ',',
-        'decimal_separator': '.',
+        "code": "GBP",
+        "name": "British Pound Sterling",
+        "symbol": "£",
+        "decimal_places": 2,
+        "thousands_separator": ",",
+        "decimal_separator": ".",
     },
 }
 
@@ -139,16 +139,13 @@ def validate_currency(currency: str) -> str:
         ValueError: Unsupported currency: JPY
     """
     if not currency:
-        raise ValueError('Currency code is required')
+        raise ValueError("Currency code is required")
 
     normalized = currency.upper().strip()
 
     if not is_valid_currency(normalized):
-        supported = ', '.join(Currency.values())
-        raise ValueError(
-            f'Unsupported currency: {currency}. '
-            f'Supported currencies: {supported}'
-        )
+        supported = ", ".join(Currency.values())
+        raise ValueError(f"Unsupported currency: {currency}. " f"Supported currencies: {supported}")
 
     return normalized
 
@@ -207,46 +204,43 @@ def format_amount(
     info = get_currency_info(currency)
 
     # Round to currency's decimal places
-    decimal_places = info['decimal_places']
-    rounded = amount.quantize(
-        Decimal(10) ** -decimal_places,
-        rounding=ROUND_HALF_UP
-    )
+    decimal_places = info["decimal_places"]
+    rounded = amount.quantize(Decimal(10) ** -decimal_places, rounding=ROUND_HALF_UP)
 
     # Format with separators
     amount_str = str(abs(rounded))
-    parts = amount_str.split('.')
+    parts = amount_str.split(".")
     integer_part = parts[0]
-    decimal_part = parts[1] if len(parts) > 1 else '0' * decimal_places
+    decimal_part = parts[1] if len(parts) > 1 else "0" * decimal_places
 
     # Add thousands separator
-    thousands_sep = info['thousands_separator']
-    formatted_integer = ''
+    thousands_sep = info["thousands_separator"]
+    formatted_integer = ""
     for i, digit in enumerate(reversed(integer_part)):
         if i > 0 and i % 3 == 0:
             formatted_integer = thousands_sep + formatted_integer
         formatted_integer = digit + formatted_integer
 
     # Combine with decimal separator
-    decimal_sep = info['decimal_separator']
-    formatted = f'{formatted_integer}{decimal_sep}{decimal_part[:decimal_places]}'
+    decimal_sep = info["decimal_separator"]
+    formatted = f"{formatted_integer}{decimal_sep}{decimal_part[:decimal_places]}"
 
     # Add negative sign if needed
     if amount < 0:
-        formatted = f'-{formatted}'
+        formatted = f"-{formatted}"
 
     # Add symbol/code
     result = formatted
     if show_symbol:
-        symbol = info['symbol']
+        symbol = info["symbol"]
         # Symbol placement varies by currency
         if currency in [Currency.USD, Currency.GBP]:
-            result = f'{symbol}{formatted}'
+            result = f"{symbol}{formatted}"
         else:  # TRY, EUR
-            result = f'{symbol}{formatted}'
+            result = f"{symbol}{formatted}"
 
     if show_code:
-        result = f'{result} {currency}'
+        result = f"{result} {currency}"
 
     return result
 
@@ -275,24 +269,24 @@ def parse_amount(amount_str: str, currency: str) -> Decimal:
 
     # Remove currency symbol and code
     cleaned = amount_str.strip()
-    for symbol in ['₺', '$', '€', '£']:
-        cleaned = cleaned.replace(symbol, '')
+    for symbol in ["₺", "$", "€", "£"]:
+        cleaned = cleaned.replace(symbol, "")
     for code in Currency.values():
-        cleaned = cleaned.replace(code, '')
+        cleaned = cleaned.replace(code, "")
     cleaned = cleaned.strip()
 
     # Remove thousands separator
-    thousands_sep = info['thousands_separator']
-    cleaned = cleaned.replace(thousands_sep, '')
+    thousands_sep = info["thousands_separator"]
+    cleaned = cleaned.replace(thousands_sep, "")
 
     # Replace decimal separator with standard '.'
-    decimal_sep = info['decimal_separator']
-    cleaned = cleaned.replace(decimal_sep, '.')
+    decimal_sep = info["decimal_separator"]
+    cleaned = cleaned.replace(decimal_sep, ".")
 
     try:
         return Decimal(cleaned)
     except (ValueError, TypeError) as e:
-        raise ValueError(f'Invalid amount format: {amount_str}') from e
+        raise ValueError(f"Invalid amount format: {amount_str}") from e
 
 
 # ============================================================================
@@ -311,10 +305,10 @@ class CurrencyConverter:
     # Sample exchange rates (TRY base)
     # In production, fetch from API like fixer.io, exchangerate.host, etc.
     DEFAULT_RATES = {
-        Currency.TRY: Decimal('1.00'),
-        Currency.USD: Decimal('0.033'),  # 1 TRY ≈ 0.033 USD
-        Currency.EUR: Decimal('0.030'),  # 1 TRY ≈ 0.030 EUR
-        Currency.GBP: Decimal('0.026'),  # 1 TRY ≈ 0.026 GBP
+        Currency.TRY: Decimal("1.00"),
+        Currency.USD: Decimal("0.033"),  # 1 TRY ≈ 0.033 USD
+        Currency.EUR: Decimal("0.030"),  # 1 TRY ≈ 0.030 EUR
+        Currency.GBP: Decimal("0.026"),  # 1 TRY ≈ 0.026 GBP
     }
 
     def __init__(self, rates: Optional[Dict[str, Decimal]] = None):
@@ -368,7 +362,7 @@ class CurrencyConverter:
         try_amount = amount / from_rate
         result = try_amount * to_rate
 
-        return result.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return result.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     def get_rate(self, from_currency: str, to_currency: str) -> Decimal:
         """
@@ -390,13 +384,13 @@ class CurrencyConverter:
         to_curr = validate_currency(to_currency)
 
         if from_curr == to_curr:
-            return Decimal('1.00')
+            return Decimal("1.00")
 
         from_rate = self.rates[Currency(from_curr)]
         to_rate = self.rates[Currency(to_curr)]
 
         rate = to_rate / from_rate
-        return rate.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+        return rate.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
     def update_rates(self, rates: Dict[str, Decimal]) -> None:
         """
@@ -437,7 +431,7 @@ def get_currency_symbol(currency: str) -> str:
         '$'
     """
     info = get_currency_info(currency)
-    return info['symbol']
+    return info["symbol"]
 
 
 def get_currency_name(currency: str) -> str:
@@ -455,7 +449,7 @@ def get_currency_name(currency: str) -> str:
         'Euro'
     """
     info = get_currency_info(currency)
-    return info['name']
+    return info["name"]
 
 
 def get_all_currencies() -> List[Dict[str, Any]]:
@@ -473,13 +467,7 @@ def get_all_currencies() -> List[Dict[str, Any]]:
         USD: US Dollar
         ...
     """
-    return [
-        {
-            'code': code,
-            **info
-        }
-        for code, info in CURRENCY_INFO.items()
-    ]
+    return [{"code": code, **info} for code, info in CURRENCY_INFO.items()]
 
 
 def compare_amounts(

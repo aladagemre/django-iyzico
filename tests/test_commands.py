@@ -40,7 +40,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         payment2 = payment_model.objects.create(
@@ -48,7 +47,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.PENDING,
-            
         )
 
         out = io.StringIO()
@@ -70,7 +68,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         out = io.StringIO()
@@ -94,7 +91,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         payment_model.objects.create(
@@ -102,7 +98,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.FAILED,
-            
         )
 
         out = io.StringIO()
@@ -126,7 +121,6 @@ class TestSyncIyzicoPaymentsCommand:
                 conversation_id=f"conv-{i}",
                 amount=Decimal("100.00"),
                 status=PaymentStatus.SUCCESS,
-                
             )
 
         out = io.StringIO()
@@ -148,7 +142,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.REFUNDED,
-            
         )
 
         payment_model.objects.create(
@@ -156,7 +149,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         out = io.StringIO()
@@ -178,7 +170,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
         # Manually set old date
         old_date = timezone.now() - timedelta(days=10)
@@ -190,7 +181,6 @@ class TestSyncIyzicoPaymentsCommand:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         out = io.StringIO()
@@ -207,6 +197,7 @@ class TestSyncIyzicoPaymentsCommand:
     def test_sync_command_invalid_model(self):
         """Test sync command with invalid model path."""
         from django.core.management.base import CommandError
+
         with pytest.raises(CommandError):
             call_command(
                 "sync_iyzico_payments",
@@ -241,7 +232,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.FAILED,
-            
         )
 
         # Set old date
@@ -272,7 +262,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.FAILED,
-            
         )
 
         old_date = timezone.now() - timedelta(days=400)
@@ -284,7 +273,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.FAILED,
-            
         )
 
         out = io.StringIO()
@@ -311,7 +299,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         date_400_days = timezone.now() - timedelta(days=400)
@@ -338,7 +325,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            
         )
 
         date_800_days = timezone.now() - timedelta(days=800)
@@ -365,7 +351,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.REFUNDED,
-            
         )
 
         old_date = timezone.now() - timedelta(days=400)
@@ -395,7 +380,6 @@ class TestCleanupOldPaymentsCommand:
             buyer_email="test@example.com",
             buyer_name="John",
             buyer_surname="Doe",
-            
         )
 
         old_date = timezone.now() - timedelta(days=400)
@@ -430,7 +414,6 @@ class TestCleanupOldPaymentsCommand:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.FAILED,
-            
         )
 
         old_date = timezone.now() - timedelta(days=400)
@@ -455,6 +438,7 @@ class TestCleanupOldPaymentsCommand:
     def test_cleanup_invalid_model(self):
         """Test cleanup with invalid model path."""
         from django.core.management.base import CommandError
+
         with pytest.raises(CommandError):
             call_command(
                 "cleanup_old_payments",

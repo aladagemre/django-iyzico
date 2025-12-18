@@ -13,28 +13,26 @@ from .installment_views import (
     ValidateInstallmentView,
 )
 
-app_name = 'django_iyzico_installments'
+app_name = "django_iyzico_installments"
 
 urlpatterns = [
     # Get all installment options
     path(
-        'installments/',
+        "installments/",
         InstallmentOptionsView.as_view(),
-        name='installment_options',
+        name="installment_options",
     ),
-
     # Get best/recommended installment options
     path(
-        'installments/best/',
+        "installments/best/",
         BestInstallmentOptionsView.as_view(),
-        name='best_installment_options',
+        name="best_installment_options",
     ),
-
     # Validate installment selection
     path(
-        'installments/validate/',
+        "installments/validate/",
         ValidateInstallmentView.as_view(),
-        name='validate_installment',
+        name="validate_installment",
     ),
 ]
 
@@ -46,7 +44,7 @@ try:
 
     if InstallmentViewSet:
         router = DefaultRouter()
-        router.register(r'installments', InstallmentViewSet, basename='installment')
+        router.register(r"installments", InstallmentViewSet, basename="installment")
 
         # Add to urlpatterns for DRF
         # urlpatterns += router.urls

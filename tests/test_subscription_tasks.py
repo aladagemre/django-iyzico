@@ -38,11 +38,11 @@ pytestmark = pytest.mark.django_db
 def user():
     """Create test user."""
     return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123',
-        first_name='Test',
-        last_name='User',
+        username="testuser",
+        email="test@example.com",
+        password="testpass123",
+        first_name="Test",
+        last_name="User",
     )
 
 
@@ -50,10 +50,10 @@ def user():
 def plan():
     """Create test plan."""
     return SubscriptionPlan.objects.create(
-        name='Test Plan',
-        slug='test',
-        price=Decimal('99.99'),
-        currency='TRY',
+        name="Test Plan",
+        slug="test",
+        price=Decimal("99.99"),
+        currency="TRY",
         billing_interval=BillingInterval.MONTHLY,
     )
 
@@ -61,9 +61,11 @@ def plan():
 class TestProcessDueSubscriptions:
     """Tests for process_due_subscriptions task."""
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
-    def test_process_due_subscriptions_success(self, mock_manager_class, mock_get_payment, user, plan):
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
+    def test_process_due_subscriptions_success(
+        self, mock_manager_class, mock_get_payment, user, plan
+    ):
         """Test processing due subscriptions successfully."""
         now = timezone.now()
 
@@ -79,7 +81,7 @@ class TestProcessDueSubscriptions:
         )
 
         # Mock payment method and successful payment
-        mock_get_payment.return_value = {'cardNumber': '5528790000000008'}
+        mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
         mock_payment = Mock()
         mock_payment.is_successful.return_value = True
@@ -89,17 +91,17 @@ class TestProcessDueSubscriptions:
         mock_manager_class.return_value = mock_manager
 
         # Run task
-        with patch('django_iyzico.tasks.send_payment_notification') as mock_notify:
+        with patch("django_iyzico.tasks.send_payment_notification") as mock_notify:
             result = process_due_subscriptions()
 
-        assert result['processed'] == 1
-        assert result['successful'] == 1
-        assert result['failed'] == 0
+        assert result["processed"] == 1
+        assert result["successful"] == 1
+        assert result["failed"] == 0
 
         mock_manager.process_billing.assert_called_once()
         mock_notify.delay.assert_called_once()
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
+    @patch("django_iyzico.tasks._get_stored_payment_method")
     def test_process_due_subscriptions_no_payment_method(self, mock_get_payment, user, plan):
         """Test handling subscription with no payment method."""
         now = timezone.now()
@@ -119,12 +121,14 @@ class TestProcessDueSubscriptions:
 
         result = process_due_subscriptions()
 
-        assert result['processed'] == 0
-        assert result['failed'] == 1
+        assert result["processed"] == 0
+        assert result["failed"] == 1
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
-    def test_process_due_subscriptions_payment_failure(self, mock_manager_class, mock_get_payment, user, plan):
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
+    def test_process_due_subscriptions_payment_failure(
+        self, mock_manager_class, mock_get_payment, user, plan
+    ):
         """Test processing subscription with payment failure."""
         now = timezone.now()
 
@@ -138,7 +142,7 @@ class TestProcessDueSubscriptions:
             next_billing_date=now - timedelta(hours=1),
         )
 
-        mock_get_payment.return_value = {'cardNumber': '5528790000000008'}
+        mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
         # Mock failed payment
         mock_payment = Mock()
@@ -148,12 +152,12 @@ class TestProcessDueSubscriptions:
         mock_manager.process_billing.return_value = mock_payment
         mock_manager_class.return_value = mock_manager
 
-        with patch('django_iyzico.tasks.send_payment_notification'):
+        with patch("django_iyzico.tasks.send_payment_notification"):
             result = process_due_subscriptions()
 
-        assert result['processed'] == 1
-        assert result['successful'] == 0
-        assert result['failed'] == 1
+        assert result["processed"] == 1
+        assert result["successful"] == 0
+        assert result["failed"] == 1
 
     def test_process_due_subscriptions_skips_future(self, user, plan):
         """Test that future subscriptions are not processed."""
@@ -172,14 +176,14 @@ class TestProcessDueSubscriptions:
 
         result = process_due_subscriptions()
 
-        assert result['processed'] == 0
+        assert result["processed"] == 0
 
 
 class TestRetryFailedPayments:
     """Tests for retry_failed_payments task."""
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
     def test_retry_failed_payments_success(self, mock_manager_class, mock_get_payment, user, plan):
         """Test successful payment retry."""
         now = timezone.now()
@@ -196,7 +200,7 @@ class TestRetryFailedPayments:
             last_payment_attempt=now - timedelta(days=1),  # 24 hours ago
         )
 
-        mock_get_payment.return_value = {'cardNumber': '5528790000000008'}
+        mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
         # Mock successful retry
         mock_payment = Mock()
@@ -206,16 +210,18 @@ class TestRetryFailedPayments:
         mock_manager.process_billing.return_value = mock_payment
         mock_manager_class.return_value = mock_manager
 
-        with patch('django_iyzico.tasks.send_payment_notification'):
+        with patch("django_iyzico.tasks.send_payment_notification"):
             result = retry_failed_payments()
 
-        assert result['retried'] == 1
-        assert result['successful'] == 1
-        assert result['failed'] == 0
+        assert result["retried"] == 1
+        assert result["successful"] == 1
+        assert result["failed"] == 0
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
-    def test_retry_failed_payments_max_retries_reached(self, mock_manager_class, mock_get_payment, user, plan):
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
+    def test_retry_failed_payments_max_retries_reached(
+        self, mock_manager_class, mock_get_payment, user, plan
+    ):
         """Test subscription expired after max retries."""
         now = timezone.now()
 
@@ -231,7 +237,7 @@ class TestRetryFailedPayments:
             last_payment_attempt=now - timedelta(days=1),
         )
 
-        mock_get_payment.return_value = {'cardNumber': '5528790000000008'}
+        mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
         # Mock failed retry
         mock_payment = Mock()
@@ -241,8 +247,8 @@ class TestRetryFailedPayments:
         mock_manager.process_billing.return_value = mock_payment
         mock_manager_class.return_value = mock_manager
 
-        with patch('django_iyzico.tasks.send_payment_notification') as mock_notify:
-            with patch('django_iyzico.tasks.getattr', return_value=3):  # Max retries = 3
+        with patch("django_iyzico.tasks.send_payment_notification") as mock_notify:
+            with patch("django_iyzico.tasks.getattr", return_value=3):  # Max retries = 3
                 result = retry_failed_payments()
 
         subscription.refresh_from_db()
@@ -267,9 +273,9 @@ class TestRetryFailedPayments:
 
         result = retry_failed_payments()
 
-        assert result['retried'] == 0
+        assert result["retried"] == 0
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
+    @patch("django_iyzico.tasks._get_stored_payment_method")
     def test_retry_no_payment_method_expires(self, mock_get_payment, user, plan):
         """Test subscription expires when no payment method after max retries."""
         now = timezone.now()
@@ -288,7 +294,7 @@ class TestRetryFailedPayments:
 
         mock_get_payment.return_value = None
 
-        with patch('django_iyzico.tasks.getattr', return_value=3):
+        with patch("django_iyzico.tasks.getattr", return_value=3):
             result = retry_failed_payments()
 
         subscription.refresh_from_db()
@@ -315,7 +321,7 @@ class TestExpireCancelledSubscriptions:
             cancelled_at=now - timedelta(days=5),
         )
 
-        with patch('django_iyzico.tasks.send_payment_notification'):
+        with patch("django_iyzico.tasks.send_payment_notification"):
             count = expire_cancelled_subscriptions()
 
         assert count == 1
@@ -348,9 +354,11 @@ class TestExpireCancelledSubscriptions:
 class TestCheckTrialExpiration:
     """Tests for check_trial_expiration task."""
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
-    def test_expired_trial_with_successful_payment(self, mock_manager_class, mock_get_payment, user, plan):
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
+    def test_expired_trial_with_successful_payment(
+        self, mock_manager_class, mock_get_payment, user, plan
+    ):
         """Test trial expiration with successful first payment."""
         now = timezone.now()
 
@@ -365,7 +373,7 @@ class TestCheckTrialExpiration:
             next_billing_date=now - timedelta(hours=1),
         )
 
-        mock_get_payment.return_value = {'cardNumber': '5528790000000008'}
+        mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
         mock_payment = Mock()
         mock_payment.is_successful.return_value = True
@@ -376,9 +384,9 @@ class TestCheckTrialExpiration:
 
         result = check_trial_expiration()
 
-        assert result['expired'] == 1
+        assert result["expired"] == 1
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
+    @patch("django_iyzico.tasks._get_stored_payment_method")
     def test_expired_trial_no_payment_method(self, mock_get_payment, user, plan):
         """Test trial expiration with no payment method."""
         now = timezone.now()
@@ -416,21 +424,21 @@ class TestCheckTrialExpiration:
             next_billing_date=now + timedelta(days=7),
         )
 
-        with patch('django_iyzico.tasks.send_payment_notification') as mock_notify:
+        with patch("django_iyzico.tasks.send_payment_notification") as mock_notify:
             result = check_trial_expiration()
 
-        assert result['notified'] == 1
+        assert result["notified"] == 1
         mock_notify.delay.assert_called_with(
             subscription_id=subscription.id,
-            event_type='trial_ending_soon',
+            event_type="trial_ending_soon",
         )
 
 
 class TestChargeSubscription:
     """Tests for charge_subscription task."""
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
     def test_charge_subscription_success(self, mock_manager_class, mock_get_payment, user, plan):
         """Test successful subscription charge."""
         now = timezone.now()
@@ -445,7 +453,7 @@ class TestChargeSubscription:
             next_billing_date=now + timedelta(days=30),
         )
 
-        mock_get_payment.return_value = {'cardNumber': '5528790000000008'}
+        mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
         mock_payment = Mock()
         mock_payment.is_successful.return_value = True
@@ -465,9 +473,11 @@ class TestChargeSubscription:
 
         assert result is False
 
-    @patch('django_iyzico.tasks._get_stored_payment_method')
-    @patch('django_iyzico.tasks.SubscriptionManager')
-    def test_charge_subscription_with_payment_method(self, mock_manager_class, mock_get_payment, user, plan):
+    @patch("django_iyzico.tasks._get_stored_payment_method")
+    @patch("django_iyzico.tasks.SubscriptionManager")
+    def test_charge_subscription_with_payment_method(
+        self, mock_manager_class, mock_get_payment, user, plan
+    ):
         """Test charging subscription with provided payment method."""
         now = timezone.now()
 
@@ -481,7 +491,7 @@ class TestChargeSubscription:
             next_billing_date=now + timedelta(days=30),
         )
 
-        payment_method = {'cardNumber': '5528790000000008'}
+        payment_method = {"cardNumber": "5528790000000008"}
 
         mock_payment = Mock()
         mock_payment.is_successful.return_value = True
@@ -516,13 +526,13 @@ class TestSendPaymentNotification:
 
         result = send_payment_notification(
             subscription_id=subscription.id,
-            event_type='payment_success',
+            event_type="payment_success",
         )
 
         assert result is True
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to == [user.email]
-        assert 'Payment Successful' in mail.outbox[0].subject
+        assert "Payment Successful" in mail.outbox[0].subject
 
     def test_send_payment_failed_notification(self, user, plan):
         """Test sending payment failed notification."""
@@ -540,12 +550,12 @@ class TestSendPaymentNotification:
 
         result = send_payment_notification(
             subscription_id=subscription.id,
-            event_type='payment_failed',
+            event_type="payment_failed",
         )
 
         assert result is True
         assert len(mail.outbox) == 1
-        assert 'Payment Failed' in mail.outbox[0].subject
+        assert "Payment Failed" in mail.outbox[0].subject
 
     def test_send_trial_ending_notification(self, user, plan):
         """Test sending trial ending soon notification."""
@@ -564,18 +574,18 @@ class TestSendPaymentNotification:
 
         result = send_payment_notification(
             subscription_id=subscription.id,
-            event_type='trial_ending_soon',
+            event_type="trial_ending_soon",
         )
 
         assert result is True
         assert len(mail.outbox) == 1
-        assert 'Trial Ending Soon' in mail.outbox[0].subject
+        assert "Trial Ending Soon" in mail.outbox[0].subject
 
     def test_send_notification_invalid_subscription(self):
         """Test sending notification for non-existent subscription."""
         result = send_payment_notification(
             subscription_id=99999,
-            event_type='payment_success',
+            event_type="payment_success",
         )
 
         assert result is False
@@ -597,7 +607,7 @@ class TestSendPaymentNotification:
 
         result = send_payment_notification(
             subscription_id=subscription.id,
-            event_type='invalid_event',
+            event_type="invalid_event",
         )
 
         assert result is False
@@ -619,11 +629,11 @@ class TestSendPaymentNotification:
         )
 
         event_types = [
-            'payment_success',
-            'payment_failed',
-            'payment_retry_success',
-            'subscription_expired',
-            'trial_ending_soon',
+            "payment_success",
+            "payment_failed",
+            "payment_retry_success",
+            "subscription_expired",
+            "trial_ending_soon",
         ]
 
         for event_type in event_types:

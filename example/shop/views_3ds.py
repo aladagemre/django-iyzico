@@ -28,20 +28,20 @@ def checkout_3ds_view(request):
     7. Webhook gets triggered for final status
     """
 
-    if request.method == 'POST':
+    if request.method == "POST":
         # Get form data
-        product_id = request.POST.get('product_id')
-        quantity = int(request.POST.get('quantity', 1))
-        currency = request.POST.get('currency', 'TRY')
-        installment_count = int(request.POST.get('installment', 1))
+        product_id = request.POST.get("product_id")
+        quantity = int(request.POST.get("quantity", 1))
+        currency = request.POST.get("currency", "TRY")
+        installment_count = int(request.POST.get("installment", 1))
 
         # Get product
         product = get_object_or_404(Product, id=product_id, is_active=True)
 
         # Check stock
         if product.stock < quantity:
-            messages.error(request, 'Insufficient stock.')
-            return redirect('product_detail', pk=product_id)
+            messages.error(request, "Insufficient stock.")
+            return redirect("product_detail", pk=product_id)
 
         # Calculate total
         total = product.price * quantity
@@ -51,14 +51,14 @@ def checkout_3ds_view(request):
             user=request.user,
             amount=total,
             currency=currency,
-            order_status='PENDING_PAYMENT',
+            order_status="PENDING_PAYMENT",
             installment_count=installment_count,
-            conversation_id=f'3DS-ORDER-{Order.objects.count() + 1}',
-            shipping_address=request.POST.get('address', ''),
-            shipping_city=request.POST.get('city', ''),
-            shipping_country='Turkey',
-            buyer_name=request.user.first_name or 'Customer',
-            buyer_surname=request.user.last_name or 'User',
+            conversation_id=f"3DS-ORDER-{Order.objects.count() + 1}",
+            shipping_address=request.POST.get("address", ""),
+            shipping_city=request.POST.get("city", ""),
+            shipping_country="Turkey",
+            buyer_name=request.user.first_name or "Customer",
+            buyer_surname=request.user.last_name or "User",
             buyer_email=request.user.email,
         )
 
@@ -68,53 +68,53 @@ def checkout_3ds_view(request):
             product=product,
             quantity=quantity,
             price=product.price,
-            currency=product.currency
+            currency=product.currency,
         )
 
         # Store order ID in session for callback
-        request.session['pending_order_id'] = order.id
+        request.session["pending_order_id"] = order.id
 
         # Set success/error redirect URLs in session
-        request.session['iyzico_success_url'] = f'/shop/orders/{order.id}/success/'
-        request.session['iyzico_error_url'] = f'/shop/checkout/error/'
+        request.session["iyzico_success_url"] = f"/shop/orders/{order.id}/success/"
+        request.session["iyzico_error_url"] = f"/shop/checkout/error/"
 
         # Prepare 3D Secure payment data
         client = IyzicoClient()
 
         order_data = {
-            'conversationId': order.conversation_id,
-            'price': str(total),
-            'paidPrice': str(total),
-            'currency': currency,
-            'basketId': order.order_number,
-            'installment': installment_count,
+            "conversationId": order.conversation_id,
+            "price": str(total),
+            "paidPrice": str(total),
+            "currency": currency,
+            "basketId": order.order_number,
+            "installment": installment_count,
         }
 
         payment_card = {
-            'cardHolderName': request.POST.get('card_holder'),
-            'cardNumber': request.POST.get('card_number'),
-            'expireMonth': request.POST.get('expire_month'),
-            'expireYear': request.POST.get('expire_year'),
-            'cvc': request.POST.get('cvc'),
+            "cardHolderName": request.POST.get("card_holder"),
+            "cardNumber": request.POST.get("card_number"),
+            "expireMonth": request.POST.get("expire_month"),
+            "expireYear": request.POST.get("expire_year"),
+            "cvc": request.POST.get("cvc"),
         }
 
         buyer = {
-            'id': str(request.user.id),
-            'name': request.user.first_name or 'Customer',
-            'surname': request.user.last_name or 'User',
-            'email': request.user.email,
-            'identityNumber': '11111111111',
-            'registrationAddress': request.POST.get('address', 'Address'),
-            'city': request.POST.get('city', 'Istanbul'),
-            'country': 'Turkey',
-            'zipCode': '34000',
+            "id": str(request.user.id),
+            "name": request.user.first_name or "Customer",
+            "surname": request.user.last_name or "User",
+            "email": request.user.email,
+            "identityNumber": "11111111111",
+            "registrationAddress": request.POST.get("address", "Address"),
+            "city": request.POST.get("city", "Istanbul"),
+            "country": "Turkey",
+            "zipCode": "34000",
         }
 
         billing_address = {
-            'address': request.POST.get('address', 'Address'),
-            'city': request.POST.get('city', 'Istanbul'),
-            'country': 'Turkey',
-            'zipCode': '34000',
+            "address": request.POST.get("address", "Address"),
+            "city": request.POST.get("city", "Istanbul"),
+            "country": "Turkey",
+            "zipCode": "34000",
         }
 
         try:
@@ -136,7 +136,7 @@ def checkout_3ds_view(request):
                 html_content = response.three_ds_html_content
 
                 # Store payment info before redirect
-                order.payment_status = 'PENDING'
+                order.payment_status = "PENDING"
                 order.save()
 
                 # Return the HTML - this will redirect user to Iyzico
@@ -144,24 +144,24 @@ def checkout_3ds_view(request):
                 return HttpResponse(html_content)
             else:
                 # 3DS initialization failed
-                order.payment_status = 'FAILED'
+                order.payment_status = "FAILED"
                 order.error_message = response.error_message
                 order.save()
-                messages.error(request, f'Payment initialization failed: {response.error_message}')
-                return redirect('checkout_3ds')
+                messages.error(request, f"Payment initialization failed: {response.error_message}")
+                return redirect("checkout_3ds")
 
         except ThreeDSecureError as e:
-            messages.error(request, f'3D Secure error: {str(e)}')
-            return redirect('checkout_3ds')
+            messages.error(request, f"3D Secure error: {str(e)}")
+            return redirect("checkout_3ds")
         except Exception as e:
-            messages.error(request, f'Unexpected error: {str(e)}')
-            return redirect('checkout_3ds')
+            messages.error(request, f"Unexpected error: {str(e)}")
+            return redirect("checkout_3ds")
 
     # GET request - show checkout form
     context = {
-        'products': Product.objects.filter(is_active=True, stock__gt=0),
+        "products": Product.objects.filter(is_active=True, stock__gt=0),
     }
-    return render(request, 'shop/checkout_3ds.html', context)
+    return render(request, "shop/checkout_3ds.html", context)
 
 
 @login_required
@@ -180,28 +180,28 @@ def payment_success_3ds_view(request, order_id):
     order = get_object_or_404(Order, id=order_id, user=request.user)
 
     # Get payment info from session (set by callback handler)
-    payment_id = request.session.get('last_payment_id')
-    payment_status = request.session.get('last_payment_status')
+    payment_id = request.session.get("last_payment_id")
+    payment_status = request.session.get("last_payment_status")
 
     # Clean up session
-    if 'pending_order_id' in request.session:
-        del request.session['pending_order_id']
-    if 'last_payment_id' in request.session:
-        del request.session['last_payment_id']
-    if 'last_payment_status' in request.session:
-        del request.session['last_payment_status']
+    if "pending_order_id" in request.session:
+        del request.session["pending_order_id"]
+    if "last_payment_id" in request.session:
+        del request.session["last_payment_id"]
+    if "last_payment_status" in request.session:
+        del request.session["last_payment_status"]
 
     # The order should already be updated by the callback handler
     # But you can also refresh it from the database
     order.refresh_from_db()
 
     context = {
-        'order': order,
-        'payment_id': payment_id,
-        'success': payment_status == 'success',
+        "order": order,
+        "payment_id": payment_id,
+        "success": payment_status == "success",
     }
 
-    return render(request, 'shop/payment_success_3ds.html', context)
+    return render(request, "shop/payment_success_3ds.html", context)
 
 
 def payment_error_3ds_view(request):
@@ -212,12 +212,12 @@ def payment_error_3ds_view(request):
     """
 
     # Get error info from session (set by callback handler)
-    error_message = request.session.get('last_payment_error', 'Payment failed')
-    error_code = request.session.get('last_payment_error_code')
-    conversation_id = request.session.get('last_payment_conversation_id')
+    error_message = request.session.get("last_payment_error", "Payment failed")
+    error_code = request.session.get("last_payment_error_code")
+    conversation_id = request.session.get("last_payment_conversation_id")
 
     # Get pending order if available
-    order_id = request.session.get('pending_order_id')
+    order_id = request.session.get("pending_order_id")
     order = None
     if order_id:
         try:
@@ -226,23 +226,23 @@ def payment_error_3ds_view(request):
             pass
 
     # Clean up session
-    if 'pending_order_id' in request.session:
-        del request.session['pending_order_id']
-    if 'last_payment_error' in request.session:
-        del request.session['last_payment_error']
-    if 'last_payment_error_code' in request.session:
-        del request.session['last_payment_error_code']
-    if 'last_payment_conversation_id' in request.session:
-        del request.session['last_payment_conversation_id']
+    if "pending_order_id" in request.session:
+        del request.session["pending_order_id"]
+    if "last_payment_error" in request.session:
+        del request.session["last_payment_error"]
+    if "last_payment_error_code" in request.session:
+        del request.session["last_payment_error_code"]
+    if "last_payment_conversation_id" in request.session:
+        del request.session["last_payment_conversation_id"]
 
     context = {
-        'error_message': error_message,
-        'error_code': error_code,
-        'conversation_id': conversation_id,
-        'order': order,
+        "error_message": error_message,
+        "error_code": error_code,
+        "conversation_id": conversation_id,
+        "order": order,
     }
 
-    return render(request, 'shop/payment_error_3ds.html', context)
+    return render(request, "shop/payment_error_3ds.html", context)
 
 
 # ============================================================================

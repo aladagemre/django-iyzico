@@ -148,6 +148,7 @@ class TestTestPaymentModel:
 
         # Wait a tiny bit and save
         import time
+
         time.sleep(0.01)
 
         payment.status = PaymentStatus.SUCCESS

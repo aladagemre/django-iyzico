@@ -107,6 +107,7 @@ django_iyzico = ["py.typed"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 testpaths = ["tests"]
 addopts = "--cov=django_iyzico --cov-report=html --cov-report=term-missing"

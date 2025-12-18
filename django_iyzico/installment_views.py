@@ -30,7 +30,9 @@ from .utils import get_client_ip
 logger = logging.getLogger(__name__)
 
 
-def _check_rate_limit(request, cache_key_prefix: str, max_requests: int = 30, window_seconds: int = 60) -> bool:
+def _check_rate_limit(
+    request, cache_key_prefix: str, max_requests: int = 30, window_seconds: int = 60
+) -> bool:
     """
     Check if request is within rate limits.
 
@@ -88,6 +90,7 @@ class InstallmentOptionsView(LoginRequiredMixin, View):
             ]
         }
     """
+
     # Return JSON response for AJAX requests instead of redirect
     raise_exception = True
 
@@ -95,30 +98,39 @@ class InstallmentOptionsView(LoginRequiredMixin, View):
         """Handle GET request for installment options."""
         try:
             # Get parameters
-            bin_number = request.GET.get('bin', '').strip()
-            amount_str = request.GET.get('amount', '').strip()
+            bin_number = request.GET.get("bin", "").strip()
+            amount_str = request.GET.get("amount", "").strip()
 
             # Validate parameters
             if not bin_number:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'BIN number is required',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "BIN number is required",
+                    },
+                    status=400,
+                )
 
             if not amount_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Amount is required',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Amount is required",
+                    },
+                    status=400,
+                )
 
             # Parse amount
             try:
                 amount = Decimal(amount_str)
             except (InvalidOperation, ValueError):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid amount format',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Invalid amount format",
+                    },
+                    status=400,
+                )
 
             # Get installment options
             client = InstallmentClient()
@@ -129,31 +141,40 @@ class InstallmentOptionsView(LoginRequiredMixin, View):
                     amount=amount,
                 )
             except IyzicoValidationException as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e),
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": str(e),
+                    },
+                    status=400,
+                )
             except IyzicoAPIException as e:
                 logger.error(f"Iyzico API error: {e}")
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Unable to fetch installment options. Please try again.',
-                }, status=500)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Unable to fetch installment options. Please try again.",
+                    },
+                    status=500,
+                )
 
             # Format response
             response_data = {
-                'success': True,
-                'banks': [bank.to_dict() for bank in bank_options],
+                "success": True,
+                "banks": [bank.to_dict() for bank in bank_options],
             }
 
             return JsonResponse(response_data)
 
         except Exception as e:
             logger.exception(f"Unexpected error in InstallmentOptionsView: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': 'An unexpected error occurred',
-            }, status=500)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "An unexpected error occurred",
+                },
+                status=500,
+            )
 
 
 class BestInstallmentOptionsView(LoginRequiredMixin, View):
@@ -188,6 +209,7 @@ class BestInstallmentOptionsView(LoginRequiredMixin, View):
             ]
         }
     """
+
     # Return JSON response for AJAX requests instead of redirect
     raise_exception = True
 
@@ -195,37 +217,43 @@ class BestInstallmentOptionsView(LoginRequiredMixin, View):
         """Handle GET request for best installment options."""
         try:
             # Get parameters
-            bin_number = request.GET.get('bin', '').strip()
-            amount_str = request.GET.get('amount', '').strip()
+            bin_number = request.GET.get("bin", "").strip()
+            amount_str = request.GET.get("amount", "").strip()
             # Currency parameter - defaults to TRY but can be overridden
-            currency = request.GET.get('currency', 'TRY').strip().upper()
+            currency = request.GET.get("currency", "TRY").strip().upper()
             # Validate currency (allow common currencies)
-            valid_currencies = {'TRY', 'USD', 'EUR', 'GBP'}
+            valid_currencies = {"TRY", "USD", "EUR", "GBP"}
             if currency not in valid_currencies:
-                currency = 'TRY'
+                currency = "TRY"
 
             # Safe int conversion with bounds
             try:
-                max_options = int(request.GET.get('max', 5))
+                max_options = int(request.GET.get("max", 5))
                 max_options = max(1, min(max_options, 20))  # Bounded between 1 and 20
             except (ValueError, TypeError):
                 max_options = 5
 
             # Validate
             if not bin_number or not amount_str:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'BIN and amount are required',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "BIN and amount are required",
+                    },
+                    status=400,
+                )
 
             # Safe Decimal conversion
             try:
                 amount = Decimal(amount_str)
             except (InvalidOperation, ValueError):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid amount format',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Invalid amount format",
+                    },
+                    status=400,
+                )
 
             # Get best options
             client = InstallmentClient()
@@ -237,10 +265,13 @@ class BestInstallmentOptionsView(LoginRequiredMixin, View):
                     max_options=max_options,
                 )
             except (IyzicoValidationException, IyzicoAPIException) as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e),
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": str(e),
+                    },
+                    status=400,
+                )
 
             # Format response with display strings
             from .installment_utils import format_installment_display
@@ -248,7 +279,7 @@ class BestInstallmentOptionsView(LoginRequiredMixin, View):
             options_data = []
             for opt in best_options:
                 option_dict = opt.to_dict()
-                option_dict['display'] = format_installment_display(
+                option_dict["display"] = format_installment_display(
                     installment_count=opt.installment_number,
                     monthly_payment=opt.monthly_price,
                     currency=currency,
@@ -258,17 +289,22 @@ class BestInstallmentOptionsView(LoginRequiredMixin, View):
                 )
                 options_data.append(option_dict)
 
-            return JsonResponse({
-                'success': True,
-                'options': options_data,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "options": options_data,
+                }
+            )
 
         except Exception as e:
             logger.exception(f"Error in BestInstallmentOptionsView: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': 'An unexpected error occurred',
-            }, status=500)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "An unexpected error occurred",
+                },
+                status=500,
+            )
 
 
 class ValidateInstallmentView(LoginRequiredMixin, View):
@@ -300,6 +336,7 @@ class ValidateInstallmentView(LoginRequiredMixin, View):
             }
         }
     """
+
     # Return JSON response for AJAX requests instead of redirect
     raise_exception = True
 
@@ -308,43 +345,59 @@ class ValidateInstallmentView(LoginRequiredMixin, View):
         import json
 
         # Rate limiting as additional protection layer
-        if not _check_rate_limit(request, 'installment_validate', max_requests=30, window_seconds=60):
-            logger.warning(f"Rate limit exceeded for installment validation from IP {get_client_ip(request)}")
-            return JsonResponse({
-                'success': False,
-                'error': 'Rate limit exceeded. Please try again later.',
-            }, status=429)
+        if not _check_rate_limit(
+            request, "installment_validate", max_requests=30, window_seconds=60
+        ):
+            logger.warning(
+                f"Rate limit exceeded for installment validation from IP {get_client_ip(request)}"
+            )
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Rate limit exceeded. Please try again later.",
+                },
+                status=429,
+            )
 
         try:
             # Parse JSON body
             try:
                 data = json.loads(request.body)
             except json.JSONDecodeError:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid JSON',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Invalid JSON",
+                    },
+                    status=400,
+                )
 
             # Get parameters
-            bin_number = data.get('bin', '').strip() if data.get('bin') else ''
-            amount_str = data.get('amount', '').strip() if data.get('amount') else ''
-            installment_number = data.get('installment')
+            bin_number = data.get("bin", "").strip() if data.get("bin") else ""
+            amount_str = data.get("amount", "").strip() if data.get("amount") else ""
+            installment_number = data.get("installment")
 
             # Validate
             if not bin_number or not amount_str or not installment_number:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'BIN, amount, and installment are required',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "BIN, amount, and installment are required",
+                    },
+                    status=400,
+                )
 
             # Safe Decimal conversion
             try:
                 amount = Decimal(amount_str)
             except (InvalidOperation, ValueError):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid amount format',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Invalid amount format",
+                    },
+                    status=400,
+                )
 
             # Safe int conversion
             try:
@@ -352,10 +405,13 @@ class ValidateInstallmentView(LoginRequiredMixin, View):
                 if installment_number < 1 or installment_number > 36:
                     raise ValueError("Installment number out of range")
             except (ValueError, TypeError):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid installment number',
-                }, status=400)
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Invalid installment number",
+                    },
+                    status=400,
+                )
 
             # Validate installment option
             client = InstallmentClient()
@@ -367,24 +423,31 @@ class ValidateInstallmentView(LoginRequiredMixin, View):
             )
 
             if option:
-                return JsonResponse({
-                    'success': True,
-                    'valid': True,
-                    'option': option.to_dict(),
-                })
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "valid": True,
+                        "option": option.to_dict(),
+                    }
+                )
             else:
-                return JsonResponse({
-                    'success': True,
-                    'valid': False,
-                    'message': 'Installment option not available for this card',
-                })
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "valid": False,
+                        "message": "Installment option not available for this card",
+                    }
+                )
 
         except Exception as e:
             logger.exception(f"Error in ValidateInstallmentView: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': 'An unexpected error occurred',
-            }, status=500)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "An unexpected error occurred",
+                },
+                status=500,
+            )
 
 
 # Function-based view for simple use cases
@@ -418,7 +481,8 @@ try:
 
     class InstallmentRateThrottle(UserRateThrottle):
         """Rate throttle for installment endpoints to prevent BIN enumeration."""
-        rate = '30/minute'
+
+        rate = "30/minute"
 
     class InstallmentViewSet(viewsets.ViewSet):
         """
@@ -435,15 +499,15 @@ try:
         permission_classes = [IsAuthenticated]
         throttle_classes = [InstallmentRateThrottle]
 
-        @action(detail=False, methods=['get'])
+        @action(detail=False, methods=["get"])
         def options(self, request):
             """Get all installment options."""
-            bin_number = request.query_params.get('bin')
-            amount_str = request.query_params.get('amount')
+            bin_number = request.query_params.get("bin")
+            amount_str = request.query_params.get("amount")
 
             if not bin_number or not amount_str:
                 return Response(
-                    {'error': 'BIN and amount are required'},
+                    {"error": "BIN and amount are required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -451,7 +515,7 @@ try:
                 amount = Decimal(amount_str)
             except (InvalidOperation, ValueError):
                 return Response(
-                    {'error': 'Invalid amount format'},
+                    {"error": "Invalid amount format"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -459,43 +523,45 @@ try:
                 client = InstallmentClient()
                 bank_options = client.get_installment_info(bin_number, amount)
 
-                return Response({
-                    'banks': [bank.to_dict() for bank in bank_options],
-                })
+                return Response(
+                    {
+                        "banks": [bank.to_dict() for bank in bank_options],
+                    }
+                )
 
             except (IyzicoValidationException, IyzicoAPIException) as e:
                 return Response(
-                    {'error': str(e)},
+                    {"error": str(e)},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             except Exception as e:
                 logger.exception(f"Error getting installment options: {e}")
                 return Response(
-                    {'error': 'An unexpected error occurred'},
+                    {"error": "An unexpected error occurred"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        @action(detail=False, methods=['get'])
+        @action(detail=False, methods=["get"])
         def best(self, request):
             """Get best installment options."""
-            bin_number = request.query_params.get('bin')
-            amount_str = request.query_params.get('amount')
+            bin_number = request.query_params.get("bin")
+            amount_str = request.query_params.get("amount")
             # Currency parameter - defaults to TRY but can be overridden
-            currency = (request.query_params.get('currency', 'TRY') or 'TRY').strip().upper()
-            valid_currencies = {'TRY', 'USD', 'EUR', 'GBP'}
+            currency = (request.query_params.get("currency", "TRY") or "TRY").strip().upper()
+            valid_currencies = {"TRY", "USD", "EUR", "GBP"}
             if currency not in valid_currencies:
-                currency = 'TRY'
+                currency = "TRY"
 
             # Safe int conversion with bounds
             try:
-                max_options = int(request.query_params.get('max', 5))
+                max_options = int(request.query_params.get("max", 5))
                 max_options = max(1, min(max_options, 20))  # Bounded between 1 and 20
             except (ValueError, TypeError):
                 max_options = 5
 
             if not bin_number or not amount_str:
                 return Response(
-                    {'error': 'BIN and amount are required'},
+                    {"error": "BIN and amount are required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -503,22 +569,20 @@ try:
                 amount = Decimal(amount_str)
             except (InvalidOperation, ValueError):
                 return Response(
-                    {'error': 'Invalid amount format'},
+                    {"error": "Invalid amount format"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             try:
                 client = InstallmentClient()
-                best_options = client.get_best_installment_options(
-                    bin_number, amount, max_options
-                )
+                best_options = client.get_best_installment_options(bin_number, amount, max_options)
 
                 from .installment_utils import format_installment_display
 
                 options_data = []
                 for opt in best_options:
                     option_dict = opt.to_dict()
-                    option_dict['display'] = format_installment_display(
+                    option_dict["display"] = format_installment_display(
                         opt.installment_number,
                         opt.monthly_price,
                         currency,
@@ -528,25 +592,25 @@ try:
                     )
                     options_data.append(option_dict)
 
-                return Response({'options': options_data})
+                return Response({"options": options_data})
 
             except Exception as e:
                 logger.exception(f"Error getting best options: {e}")
                 return Response(
-                    {'error': 'An unexpected error occurred'},
+                    {"error": "An unexpected error occurred"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        @action(detail=False, methods=['post'])
+        @action(detail=False, methods=["post"])
         def validate(self, request):
             """Validate installment selection."""
-            bin_number = request.data.get('bin')
-            amount_str = request.data.get('amount')
-            installment_number = request.data.get('installment')
+            bin_number = request.data.get("bin")
+            amount_str = request.data.get("amount")
+            installment_number = request.data.get("installment")
 
             if not all([bin_number, amount_str, installment_number]):
                 return Response(
-                    {'error': 'BIN, amount, and installment are required'},
+                    {"error": "BIN, amount, and installment are required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -555,7 +619,7 @@ try:
                 amount = Decimal(amount_str)
             except (InvalidOperation, ValueError):
                 return Response(
-                    {'error': 'Invalid amount format'},
+                    {"error": "Invalid amount format"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -566,31 +630,33 @@ try:
                     raise ValueError("Installment number out of range")
             except (ValueError, TypeError):
                 return Response(
-                    {'error': 'Invalid installment number'},
+                    {"error": "Invalid installment number"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             try:
                 client = InstallmentClient()
-                option = client.validate_installment_option(
-                    bin_number, amount, installment_number
-                )
+                option = client.validate_installment_option(bin_number, amount, installment_number)
 
                 if option:
-                    return Response({
-                        'valid': True,
-                        'option': option.to_dict(),
-                    })
+                    return Response(
+                        {
+                            "valid": True,
+                            "option": option.to_dict(),
+                        }
+                    )
                 else:
-                    return Response({
-                        'valid': False,
-                        'message': 'Installment option not available',
-                    })
+                    return Response(
+                        {
+                            "valid": False,
+                            "message": "Installment option not available",
+                        }
+                    )
 
             except Exception as e:
                 logger.exception(f"Error validating installment: {e}")
                 return Response(
-                    {'error': 'An unexpected error occurred'},
+                    {"error": "An unexpected error occurred"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 

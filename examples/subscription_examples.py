@@ -37,6 +37,7 @@ User = get_user_model()
 # Example 1: Creating Subscription Plans
 # =============================================================================
 
+
 def create_subscription_plans():
     """
     Create different subscription tiers for a SaaS application.
@@ -45,20 +46,20 @@ def create_subscription_plans():
     """
     # Basic Plan - $9.99/month
     basic_plan = SubscriptionPlan.objects.create(
-        name='Basic',
-        slug='basic',
-        description='Perfect for individuals and small projects',
-        price=Decimal('9.99'),
-        currency='USD',
+        name="Basic",
+        slug="basic",
+        description="Perfect for individuals and small projects",
+        price=Decimal("9.99"),
+        currency="USD",
         billing_interval=BillingInterval.MONTHLY,
         billing_interval_count=1,
         trial_period_days=7,  # 7-day trial
         features={
-            'storage': '10GB',
-            'projects': 5,
-            'team_members': 1,
-            'support': 'Email',
-            'api_calls': 10000,
+            "storage": "10GB",
+            "projects": 5,
+            "team_members": 1,
+            "support": "Email",
+            "api_calls": 10000,
         },
         sort_order=1,
         is_active=True,
@@ -66,21 +67,21 @@ def create_subscription_plans():
 
     # Pro Plan - $29.99/month
     pro_plan = SubscriptionPlan.objects.create(
-        name='Professional',
-        slug='professional',
-        description='For growing teams and businesses',
-        price=Decimal('29.99'),
-        currency='USD',
+        name="Professional",
+        slug="professional",
+        description="For growing teams and businesses",
+        price=Decimal("29.99"),
+        currency="USD",
         billing_interval=BillingInterval.MONTHLY,
         billing_interval_count=1,
         trial_period_days=14,  # 14-day trial
         features={
-            'storage': '100GB',
-            'projects': 50,
-            'team_members': 10,
-            'support': 'Priority Email',
-            'api_calls': 100000,
-            'custom_domain': True,
+            "storage": "100GB",
+            "projects": 50,
+            "team_members": 10,
+            "support": "Priority Email",
+            "api_calls": 100000,
+            "custom_domain": True,
         },
         sort_order=2,
         is_active=True,
@@ -88,23 +89,23 @@ def create_subscription_plans():
 
     # Enterprise Plan - $99.99/month
     enterprise_plan = SubscriptionPlan.objects.create(
-        name='Enterprise',
-        slug='enterprise',
-        description='For large organizations with advanced needs',
-        price=Decimal('99.99'),
-        currency='USD',
+        name="Enterprise",
+        slug="enterprise",
+        description="For large organizations with advanced needs",
+        price=Decimal("99.99"),
+        currency="USD",
         billing_interval=BillingInterval.MONTHLY,
         billing_interval_count=1,
         trial_period_days=30,  # 30-day trial
         features={
-            'storage': 'Unlimited',
-            'projects': 'Unlimited',
-            'team_members': 'Unlimited',
-            'support': '24/7 Phone & Email',
-            'api_calls': 'Unlimited',
-            'custom_domain': True,
-            'dedicated_account_manager': True,
-            'sla': '99.9%',
+            "storage": "Unlimited",
+            "projects": "Unlimited",
+            "team_members": "Unlimited",
+            "support": "24/7 Phone & Email",
+            "api_calls": "Unlimited",
+            "custom_domain": True,
+            "dedicated_account_manager": True,
+            "sla": "99.9%",
         },
         sort_order=3,
         is_active=True,
@@ -113,38 +114,39 @@ def create_subscription_plans():
 
     # Annual Plan (save 20%) - $95.88/year
     annual_plan = SubscriptionPlan.objects.create(
-        name='Professional Annual',
-        slug='professional-annual',
-        description='Save 20% with annual billing',
-        price=Decimal('287.88'),  # $29.99 * 12 * 0.8
-        currency='USD',
+        name="Professional Annual",
+        slug="professional-annual",
+        description="Save 20% with annual billing",
+        price=Decimal("287.88"),  # $29.99 * 12 * 0.8
+        currency="USD",
         billing_interval=BillingInterval.YEARLY,
         billing_interval_count=1,
         trial_period_days=14,
         features={
-            'storage': '100GB',
-            'projects': 50,
-            'team_members': 10,
-            'support': 'Priority Email',
-            'api_calls': 100000,
-            'custom_domain': True,
-            'billing_discount': '20%',
+            "storage": "100GB",
+            "projects": 50,
+            "team_members": 10,
+            "support": "Priority Email",
+            "api_calls": 100000,
+            "custom_domain": True,
+            "billing_discount": "20%",
         },
         sort_order=4,
         is_active=True,
     )
 
     return {
-        'basic': basic_plan,
-        'pro': pro_plan,
-        'enterprise': enterprise_plan,
-        'annual': annual_plan,
+        "basic": basic_plan,
+        "pro": pro_plan,
+        "enterprise": enterprise_plan,
+        "annual": annual_plan,
     }
 
 
 # =============================================================================
 # Example 2: Creating a Subscription with Trial
 # =============================================================================
+
 
 def subscribe_user_with_trial(user, plan):
     """
@@ -161,11 +163,11 @@ def subscribe_user_with_trial(user, plan):
 
     # Payment method (test card)
     payment_method = {
-        'cardHolderName': f"{user.first_name} {user.last_name}",
-        'cardNumber': '5528790000000008',  # Test card
-        'expireMonth': '12',
-        'expireYear': '2030',
-        'cvc': '123',
+        "cardHolderName": f"{user.first_name} {user.last_name}",
+        "cardNumber": "5528790000000008",  # Test card
+        "expireMonth": "12",
+        "expireYear": "2030",
+        "cvc": "123",
     }
 
     # Create subscription with trial
@@ -175,9 +177,9 @@ def subscribe_user_with_trial(user, plan):
         payment_method=payment_method,
         trial=True,  # Use trial period
         metadata={
-            'source': 'website',
-            'campaign': 'spring2025',
-            'referral_code': 'FRIEND123',
+            "source": "website",
+            "campaign": "spring2025",
+            "referral_code": "FRIEND123",
         },
     )
 
@@ -193,6 +195,7 @@ def subscribe_user_with_trial(user, plan):
 # Example 3: Creating a Subscription without Trial (Immediate Billing)
 # =============================================================================
 
+
 def subscribe_user_immediate(user, plan):
     """
     Subscribe a user with immediate billing (no trial).
@@ -207,11 +210,11 @@ def subscribe_user_immediate(user, plan):
     manager = SubscriptionManager()
 
     payment_method = {
-        'cardHolderName': f"{user.first_name} {user.last_name}",
-        'cardNumber': '5528790000000008',
-        'expireMonth': '12',
-        'expireYear': '2030',
-        'cvc': '123',
+        "cardHolderName": f"{user.first_name} {user.last_name}",
+        "cardNumber": "5528790000000008",
+        "expireMonth": "12",
+        "expireYear": "2030",
+        "cvc": "123",
     }
 
     # Create subscription without trial
@@ -239,6 +242,7 @@ def subscribe_user_immediate(user, plan):
 # Example 4: Upgrading a Subscription
 # =============================================================================
 
+
 def upgrade_subscription(subscription, new_plan):
     """
     Upgrade subscription to a higher tier with prorated charge.
@@ -260,7 +264,9 @@ def upgrade_subscription(subscription, new_plan):
     )
 
     print(f"Subscription upgraded from {subscription.plan.name} to {new_plan.name}")
-    print(f"New price: {new_plan.price} {new_plan.currency}/{new_plan.get_billing_interval_display()}")
+    print(
+        f"New price: {new_plan.price} {new_plan.currency}/{new_plan.get_billing_interval_display()}"
+    )
 
     return updated_subscription
 
@@ -268,6 +274,7 @@ def upgrade_subscription(subscription, new_plan):
 # =============================================================================
 # Example 5: Downgrading a Subscription
 # =============================================================================
+
 
 def downgrade_subscription(subscription, new_plan, at_period_end=True):
     """
@@ -301,6 +308,7 @@ def downgrade_subscription(subscription, new_plan, at_period_end=True):
 # =============================================================================
 # Example 6: Cancelling a Subscription
 # =============================================================================
+
 
 def cancel_subscription(subscription, immediate=False, reason=None):
     """
@@ -336,6 +344,7 @@ def cancel_subscription(subscription, immediate=False, reason=None):
 # =============================================================================
 # Example 7: Pausing and Resuming a Subscription
 # =============================================================================
+
 
 def pause_subscription(subscription):
     """
@@ -382,6 +391,7 @@ def resume_subscription(subscription):
 # =============================================================================
 # Example 8: Handling Subscription Signals
 # =============================================================================
+
 
 def setup_subscription_signals():
     """
@@ -441,6 +451,7 @@ def setup_subscription_signals():
 # Example 9: Checking Subscription Status
 # =============================================================================
 
+
 def check_subscription_status(user):
     """
     Check user's subscription status and permissions.
@@ -458,28 +469,29 @@ def check_subscription_status(user):
 
     if not subscription:
         return {
-            'has_subscription': False,
-            'plan': None,
-            'features': {},
+            "has_subscription": False,
+            "plan": None,
+            "features": {},
         }
 
     return {
-        'has_subscription': True,
-        'plan': subscription.plan.name,
-        'status': subscription.get_status_display(),
-        'is_trialing': subscription.is_trialing(),
-        'trial_ends': subscription.trial_end_date,
-        'next_billing_date': subscription.next_billing_date,
-        'days_until_renewal': subscription.days_until_renewal(),
-        'features': subscription.plan.features,
-        'total_paid': subscription.get_total_amount_paid(),
-        'payment_count': subscription.get_successful_payment_count(),
+        "has_subscription": True,
+        "plan": subscription.plan.name,
+        "status": subscription.get_status_display(),
+        "is_trialing": subscription.is_trialing(),
+        "trial_ends": subscription.trial_end_date,
+        "next_billing_date": subscription.next_billing_date,
+        "days_until_renewal": subscription.days_until_renewal(),
+        "features": subscription.plan.features,
+        "total_paid": subscription.get_total_amount_paid(),
+        "payment_count": subscription.get_successful_payment_count(),
     }
 
 
 # =============================================================================
 # Example 10: Admin - Manually Process Billing
 # =============================================================================
+
 
 def manually_process_subscription_billing(subscription_id):
     """
@@ -505,6 +517,7 @@ def manually_process_subscription_billing(subscription_id):
 # =============================================================================
 # Example 11: Admin - Generate Subscription Report
 # =============================================================================
+
 
 def generate_subscription_report(start_date, end_date):
     """
@@ -540,20 +553,20 @@ def generate_subscription_report(start_date, end_date):
     from django_iyzico.subscription_models import SubscriptionPayment
 
     revenue = SubscriptionPayment.objects.filter(
-        status='success',
+        status="success",
         created_at__gte=start_date,
         created_at__lte=end_date,
     ).aggregate(
-        total_revenue=Sum('amount'),
-        payment_count=Count('id'),
-        avg_payment=Avg('amount'),
+        total_revenue=Sum("amount"),
+        payment_count=Count("id"),
+        avg_payment=Avg("amount"),
     )
 
     # Calculate MRR (Monthly Recurring Revenue)
     monthly_subs = Subscription.objects.filter(
         status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
         plan__billing_interval=BillingInterval.MONTHLY,
-    ).select_related('plan')
+    ).select_related("plan")
 
     mrr = sum(sub.plan.price for sub in monthly_subs)
 
@@ -566,24 +579,24 @@ def generate_subscription_report(start_date, end_date):
     churn_rate = (cancelled_subs / start_active * 100) if start_active > 0 else 0
 
     return {
-        'period': {
-            'start': start_date,
-            'end': end_date,
+        "period": {
+            "start": start_date,
+            "end": end_date,
         },
-        'subscriptions': {
-            'active': active_subs,
-            'new': new_subs,
-            'cancelled': cancelled_subs,
-            'churn_rate': f"{churn_rate:.2f}%",
+        "subscriptions": {
+            "active": active_subs,
+            "new": new_subs,
+            "cancelled": cancelled_subs,
+            "churn_rate": f"{churn_rate:.2f}%",
         },
-        'revenue': {
-            'total': revenue['total_revenue'] or Decimal('0.00'),
-            'payment_count': revenue['payment_count'],
-            'average_payment': revenue['avg_payment'] or Decimal('0.00'),
+        "revenue": {
+            "total": revenue["total_revenue"] or Decimal("0.00"),
+            "payment_count": revenue["payment_count"],
+            "average_payment": revenue["avg_payment"] or Decimal("0.00"),
         },
-        'metrics': {
-            'mrr': mrr,
-            'arr': mrr * 12,  # Annual Recurring Revenue
+        "metrics": {
+            "mrr": mrr,
+            "arr": mrr * 12,  # Annual Recurring Revenue
         },
     }
 
@@ -591,6 +604,7 @@ def generate_subscription_report(start_date, end_date):
 # =============================================================================
 # Example 12: Full SaaS Subscription Flow
 # =============================================================================
+
 
 @transaction.atomic
 def complete_saas_subscription_flow():
@@ -604,11 +618,11 @@ def complete_saas_subscription_flow():
 
     # 2. User signs up
     user = User.objects.create_user(
-        username='newuser',
-        email='newuser@example.com',
-        password='password123',
-        first_name='New',
-        last_name='User',
+        username="newuser",
+        email="newuser@example.com",
+        password="password123",
+        first_name="New",
+        last_name="User",
     )
 
     print("\n=== Step 1: User Signup ===")
@@ -616,7 +630,7 @@ def complete_saas_subscription_flow():
 
     # 3. Subscribe to Basic plan with trial
     print("\n=== Step 2: Subscribe to Basic Plan ===")
-    subscription = subscribe_user_with_trial(user, plans['basic'])
+    subscription = subscribe_user_with_trial(user, plans["basic"])
 
     # 4. User uses service during trial
     print("\n=== Step 3: During Trial Period ===")
@@ -629,12 +643,12 @@ def complete_saas_subscription_flow():
     # 6. After 2 months, user upgrades to Pro
     print("\n=== Step 4: Upgrade to Professional ===")
     subscription.refresh_from_db()
-    upgrade_subscription(subscription, plans['pro'])
+    upgrade_subscription(subscription, plans["pro"])
 
     # 7. After 6 months, user downgrades to Basic
     print("\n=== Step 5: Downgrade to Basic ===")
     subscription.refresh_from_db()
-    downgrade_subscription(subscription, plans['basic'], at_period_end=True)
+    downgrade_subscription(subscription, plans["basic"], at_period_end=True)
 
     # 8. User cancels subscription
     print("\n=== Step 6: Cancel Subscription ===")
@@ -650,6 +664,6 @@ def complete_saas_subscription_flow():
     return subscription
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run the complete flow
     complete_saas_subscription_flow()

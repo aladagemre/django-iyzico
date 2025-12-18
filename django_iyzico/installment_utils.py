@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 def calculate_installment_payment(
     base_amount: Decimal,
     installment_count: int,
-    installment_rate: Decimal = Decimal('0.00'),
+    installment_rate: Decimal = Decimal("0.00"),
 ) -> Dict[str, Decimal]:
     """
     Calculate installment payment breakdown.
@@ -55,24 +55,24 @@ def calculate_installment_payment(
 
     # Calculate monthly payment (round to 2 decimal places)
     monthly_payment = (total_with_fees / installment_count).quantize(
-        Decimal('0.01'),
+        Decimal("0.01"),
         rounding=ROUND_HALF_UP,
     )
 
     return {
-        'base_amount': base_amount,
-        'installment_count': installment_count,
-        'installment_rate': installment_rate,
-        'total_fee': total_fee.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-        'total_with_fees': total_with_fees.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-        'monthly_payment': monthly_payment,
+        "base_amount": base_amount,
+        "installment_count": installment_count,
+        "installment_rate": installment_rate,
+        "total_fee": total_fee.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        "total_with_fees": total_with_fees.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        "monthly_payment": monthly_payment,
     }
 
 
 def format_installment_display(
     installment_count: int,
     monthly_payment: Decimal,
-    currency: str = 'TRY',
+    currency: str = "TRY",
     show_total: bool = False,
     total_with_fees: Optional[Decimal] = None,
     base_amount: Optional[Decimal] = None,
@@ -109,7 +109,7 @@ def format_installment_display(
         return basic_display
 
     # Add total and fee information
-    fee = (total_with_fees - base_amount) if base_amount else Decimal('0.00')
+    fee = (total_with_fees - base_amount) if base_amount else Decimal("0.00")
 
     if fee == 0:
         return f"{basic_display} (0% Interest)"
@@ -146,9 +146,7 @@ def validate_installment_count(
         raise ValueError("Installment count must be an integer")
 
     if installment_count < min_count or installment_count > max_count:
-        raise ValueError(
-            f"Installment count must be between {min_count} and {max_count}"
-        )
+        raise ValueError(f"Installment count must be between {min_count} and {max_count}")
 
     return True
 
@@ -189,7 +187,7 @@ def calculate_zero_interest_threshold(
         >>> print(threshold)
         Decimal('500.00')
     """
-    return campaign_rules.get('min_amount', Decimal('0.00'))
+    return campaign_rules.get("min_amount", Decimal("0.00"))
 
 
 def is_zero_interest(installment_rate: Decimal) -> bool:
@@ -208,7 +206,7 @@ def is_zero_interest(installment_rate: Decimal) -> bool:
         >>> is_zero_interest(Decimal('3.50'))
         False
     """
-    return installment_rate == Decimal('0.00')
+    return installment_rate == Decimal("0.00")
 
 
 def compare_installment_options(
@@ -234,8 +232,8 @@ def compare_installment_options(
         >>> compare_installment_options(opt1, opt2)
         -1  # opt1 is better (0% interest)
     """
-    rate1 = option1.get('installment_rate', Decimal('999.99'))
-    rate2 = option2.get('installment_rate', Decimal('999.99'))
+    rate1 = option1.get("installment_rate", Decimal("999.99"))
+    rate2 = option2.get("installment_rate", Decimal("999.99"))
 
     # Prefer 0% interest
     if is_zero_interest(rate1) and not is_zero_interest(rate2):
@@ -244,8 +242,8 @@ def compare_installment_options(
         return 1
 
     # Compare total amounts
-    total1 = option1.get('total_with_fees', Decimal('0.00'))
-    total2 = option2.get('total_with_fees', Decimal('0.00'))
+    total1 = option1.get("total_with_fees", Decimal("0.00"))
+    total2 = option2.get("total_with_fees", Decimal("0.00"))
 
     if total1 < total2:
         return -1
@@ -253,8 +251,8 @@ def compare_installment_options(
         return 1
 
     # Compare installment counts (fewer is better)
-    count1 = option1.get('installment_count', 999)
-    count2 = option2.get('installment_count', 999)
+    count1 = option1.get("installment_count", 999)
+    count2 = option2.get("installment_count", 999)
 
     if count1 < count2:
         return -1
@@ -289,7 +287,7 @@ def group_installments_by_rate(
     with_fees = []
 
     for option in installment_options:
-        rate = option.get('installment_rate', Decimal('0.00'))
+        rate = option.get("installment_rate", Decimal("0.00"))
 
         if is_zero_interest(rate):
             zero_interest.append(option)
@@ -297,8 +295,8 @@ def group_installments_by_rate(
             with_fees.append(option)
 
     return {
-        'zero_interest': zero_interest,
-        'with_fees': with_fees,
+        "zero_interest": zero_interest,
+        "with_fees": with_fees,
     }
 
 
@@ -323,8 +321,8 @@ def calculate_savings_vs_single_payment(
         >>> print(cost)
         Decimal('3.00')  # 3 TRY more expensive
     """
-    base = option.get('base_amount', Decimal('0.00'))
-    total = option.get('total_with_fees', Decimal('0.00'))
+    base = option.get("base_amount", Decimal("0.00"))
+    total = option.get("total_with_fees", Decimal("0.00"))
 
     return total - base
 
@@ -364,12 +362,12 @@ def get_recommended_installment(
     grouped = group_installments_by_rate(available_options)
 
     # Prefer 0% interest options
-    zero_interest = grouped['zero_interest']
+    zero_interest = grouped["zero_interest"]
 
     if zero_interest:
         # Find option with 3-6 installments if available
         for opt in zero_interest:
-            count = opt.get('installment_count', 1)
+            count = opt.get("installment_count", 1)
             if 3 <= count <= 6:
                 return opt
 
@@ -377,20 +375,17 @@ def get_recommended_installment(
         return zero_interest[0]
 
     # No 0% options, find lowest fee with 3-6 installments
-    with_fees = grouped['with_fees']
+    with_fees = grouped["with_fees"]
 
     if not with_fees:
         return None
 
     # Sort by total amount
-    sorted_options = sorted(
-        with_fees,
-        key=lambda x: x.get('total_with_fees', Decimal('999999.99'))
-    )
+    sorted_options = sorted(with_fees, key=lambda x: x.get("total_with_fees", Decimal("999999.99")))
 
     # Prefer 3-6 installments
     for opt in sorted_options:
-        count = opt.get('installment_count', 1)
+        count = opt.get("installment_count", 1)
         if 3 <= count <= 6:
             return opt
 
@@ -400,7 +395,7 @@ def get_recommended_installment(
 
 def format_installment_table(
     installment_options: List[Dict[str, Decimal]],
-    currency: str = 'TRY',
+    currency: str = "TRY",
 ) -> str:
     """
     Format installment options as a text table.
@@ -441,10 +436,10 @@ def format_installment_table(
     lines.append("-" * 55)
 
     for opt in installment_options:
-        count = opt.get('installment_count', 1)
-        monthly = opt.get('monthly_payment', Decimal('0.00'))
-        total = opt.get('total_with_fees', Decimal('0.00'))
-        rate = opt.get('installment_rate', Decimal('0.00'))
+        count = opt.get("installment_count", 1)
+        monthly = opt.get("monthly_payment", Decimal("0.00"))
+        total = opt.get("total_with_fees", Decimal("0.00"))
+        rate = opt.get("installment_rate", Decimal("0.00"))
 
         lines.append(
             f"{count}x{'':<10} | "

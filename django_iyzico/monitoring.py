@@ -32,18 +32,19 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 # Structured logger for payment events
-payment_logger = logging.getLogger('django_iyzico.payments')
-billing_logger = logging.getLogger('django_iyzico.billing')
-security_logger = logging.getLogger('django_iyzico.security')
+payment_logger = logging.getLogger("django_iyzico.payments")
+billing_logger = logging.getLogger("django_iyzico.billing")
+security_logger = logging.getLogger("django_iyzico.security")
 
 
 @dataclass
 class PaymentMetrics:
     """Container for payment metrics."""
+
     total_attempts: int = 0
     successful: int = 0
     failed: int = 0
-    total_amount: Decimal = field(default_factory=lambda: Decimal('0.00'))
+    total_amount: Decimal = field(default_factory=lambda: Decimal("0.00"))
     average_duration_ms: float = 0.0
     last_failure_reason: Optional[str] = None
     period_start: datetime = field(default_factory=timezone.now)
@@ -67,18 +68,18 @@ class MonitoringService:
     """
 
     # Cache keys for metrics
-    METRICS_KEY_PREFIX = 'iyzico_metrics_'
-    FAILURE_RATE_KEY = 'iyzico_failure_rate'
-    DOUBLE_BILLING_KEY = 'iyzico_double_billing_attempts'
+    METRICS_KEY_PREFIX = "iyzico_metrics_"
+    FAILURE_RATE_KEY = "iyzico_failure_rate"
+    DOUBLE_BILLING_KEY = "iyzico_double_billing_attempts"
 
     def __init__(self):
         """Initialize monitoring service."""
-        self.config = getattr(settings, 'IYZICO_MONITORING', {})
-        self.metrics_backend = self.config.get('METRICS_BACKEND', None)
-        self.log_payments = self.config.get('LOG_PAYMENTS', True)
-        self.alert_on_double_billing = self.config.get('ALERT_ON_DOUBLE_BILLING', True)
-        self.alert_on_high_failure_rate = self.config.get('ALERT_ON_HIGH_FAILURE_RATE', True)
-        self.failure_rate_threshold = self.config.get('FAILURE_RATE_THRESHOLD', 0.05)
+        self.config = getattr(settings, "IYZICO_MONITORING", {})
+        self.metrics_backend = self.config.get("METRICS_BACKEND", None)
+        self.log_payments = self.config.get("LOG_PAYMENTS", True)
+        self.alert_on_double_billing = self.config.get("ALERT_ON_DOUBLE_BILLING", True)
+        self.alert_on_high_failure_rate = self.config.get("ALERT_ON_HIGH_FAILURE_RATE", True)
+        self.failure_rate_threshold = self.config.get("FAILURE_RATE_THRESHOLD", 0.05)
 
     # -------------------------------------------------------------------------
     # Payment Event Logging
@@ -89,7 +90,7 @@ class MonitoringService:
         user_id: Any,
         amount: Decimal,
         currency: str,
-        payment_type: str = 'one_time',
+        payment_type: str = "one_time",
         metadata: Optional[Dict] = None,
     ) -> None:
         """
@@ -106,23 +107,23 @@ class MonitoringService:
             return
 
         log_data = {
-            'event': 'payment_attempt',
-            'user_id': str(user_id),
-            'amount': str(amount),
-            'currency': currency,
-            'payment_type': payment_type,
-            'timestamp': timezone.now().isoformat(),
+            "event": "payment_attempt",
+            "user_id": str(user_id),
+            "amount": str(amount),
+            "currency": currency,
+            "payment_type": payment_type,
+            "timestamp": timezone.now().isoformat(),
         }
 
         if metadata:
-            log_data['metadata'] = metadata
+            log_data["metadata"] = metadata
 
         payment_logger.info(
             f"Payment attempt: user={user_id}, amount={amount} {currency}",
-            extra={'payment_data': log_data}
+            extra={"payment_data": log_data},
         )
 
-        self._increment_metric('payment_attempts')
+        self._increment_metric("payment_attempts")
 
     def log_payment_success(
         self,
@@ -148,25 +149,25 @@ class MonitoringService:
             return
 
         log_data = {
-            'event': 'payment_success',
-            'payment_id': payment_id,
-            'user_id': str(user_id),
-            'amount': str(amount),
-            'currency': currency,
-            'duration_ms': duration_ms,
-            'timestamp': timezone.now().isoformat(),
+            "event": "payment_success",
+            "payment_id": payment_id,
+            "user_id": str(user_id),
+            "amount": str(amount),
+            "currency": currency,
+            "duration_ms": duration_ms,
+            "timestamp": timezone.now().isoformat(),
         }
 
         if metadata:
-            log_data['metadata'] = metadata
+            log_data["metadata"] = metadata
 
         payment_logger.info(
             f"Payment success: payment_id={payment_id}, amount={amount} {currency}",
-            extra={'payment_data': log_data}
+            extra={"payment_data": log_data},
         )
 
-        self._increment_metric('payment_successes')
-        self._record_amount('payment_volume', amount, currency)
+        self._increment_metric("payment_successes")
+        self._record_amount("payment_volume", amount, currency)
 
     def log_payment_failure(
         self,
@@ -191,25 +192,25 @@ class MonitoringService:
             metadata: Additional context data.
         """
         log_data = {
-            'event': 'payment_failure',
-            'user_id': str(user_id),
-            'error_code': error_code,
-            'error_message': error_message,
-            'amount': str(amount) if amount else None,
-            'currency': currency,
-            'is_recoverable': is_recoverable,
-            'timestamp': timezone.now().isoformat(),
+            "event": "payment_failure",
+            "user_id": str(user_id),
+            "error_code": error_code,
+            "error_message": error_message,
+            "amount": str(amount) if amount else None,
+            "currency": currency,
+            "is_recoverable": is_recoverable,
+            "timestamp": timezone.now().isoformat(),
         }
 
         if metadata:
-            log_data['metadata'] = metadata
+            log_data["metadata"] = metadata
 
         payment_logger.warning(
             f"Payment failure: user={user_id}, error={error_code}: {error_message}",
-            extra={'payment_data': log_data}
+            extra={"payment_data": log_data},
         )
 
-        self._increment_metric('payment_failures')
+        self._increment_metric("payment_failures")
         self._check_failure_rate_alert()
 
     # -------------------------------------------------------------------------
@@ -227,23 +228,23 @@ class MonitoringService:
     ) -> None:
         """Log a subscription billing attempt."""
         log_data = {
-            'event': 'billing_attempt',
-            'subscription_id': subscription_id,
-            'user_id': str(user_id),
-            'amount': str(amount),
-            'currency': currency,
-            'attempt_number': attempt_number,
-            'is_retry': is_retry,
-            'timestamp': timezone.now().isoformat(),
+            "event": "billing_attempt",
+            "subscription_id": subscription_id,
+            "user_id": str(user_id),
+            "amount": str(amount),
+            "currency": currency,
+            "attempt_number": attempt_number,
+            "is_retry": is_retry,
+            "timestamp": timezone.now().isoformat(),
         }
 
         billing_logger.info(
             f"Billing attempt: subscription={subscription_id}, "
             f"attempt={attempt_number}, retry={is_retry}",
-            extra={'billing_data': log_data}
+            extra={"billing_data": log_data},
         )
 
-        self._increment_metric('billing_attempts')
+        self._increment_metric("billing_attempts")
 
     def log_double_billing_attempt(
         self,
@@ -257,27 +258,27 @@ class MonitoringService:
         This is a critical security event that should trigger alerts.
         """
         log_data = {
-            'event': 'double_billing_prevented',
-            'subscription_id': subscription_id,
-            'user_id': str(user_id),
-            'existing_payment_id': existing_payment_id,
-            'timestamp': timezone.now().isoformat(),
-            'severity': 'HIGH',
+            "event": "double_billing_prevented",
+            "subscription_id": subscription_id,
+            "user_id": str(user_id),
+            "existing_payment_id": existing_payment_id,
+            "timestamp": timezone.now().isoformat(),
+            "severity": "HIGH",
         }
 
         security_logger.warning(
             f"DOUBLE BILLING PREVENTED: subscription={subscription_id}, "
             f"existing_payment={existing_payment_id}",
-            extra={'security_data': log_data}
+            extra={"security_data": log_data},
         )
 
-        self._increment_metric('double_billing_prevented')
+        self._increment_metric("double_billing_prevented")
 
         if self.alert_on_double_billing:
             self._send_alert(
-                'double_billing_attempt',
+                "double_billing_attempt",
                 f"Double billing attempt prevented for subscription {subscription_id}",
-                severity='high',
+                severity="high",
                 data=log_data,
             )
 
@@ -294,23 +295,23 @@ class MonitoringService:
     ) -> None:
         """Log webhook receipt."""
         log_data = {
-            'event': 'webhook_received',
-            'event_type': event_type,
-            'source_ip': source_ip,
-            'signature_valid': signature_valid,
-            'payment_id': payment_id,
-            'timestamp': timezone.now().isoformat(),
+            "event": "webhook_received",
+            "event_type": event_type,
+            "source_ip": source_ip,
+            "signature_valid": signature_valid,
+            "payment_id": payment_id,
+            "timestamp": timezone.now().isoformat(),
         }
 
         if signature_valid:
             security_logger.info(
                 f"Webhook received: type={event_type}, ip={source_ip}",
-                extra={'webhook_data': log_data}
+                extra={"webhook_data": log_data},
             )
         else:
             security_logger.warning(
                 f"Webhook signature invalid: type={event_type}, ip={source_ip}",
-                extra={'webhook_data': log_data}
+                extra={"webhook_data": log_data},
             )
 
     def log_webhook_rejected(
@@ -321,19 +322,18 @@ class MonitoringService:
     ) -> None:
         """Log rejected webhook."""
         log_data = {
-            'event': 'webhook_rejected',
-            'reason': reason,
-            'source_ip': source_ip,
-            'details': details,
-            'timestamp': timezone.now().isoformat(),
+            "event": "webhook_rejected",
+            "reason": reason,
+            "source_ip": source_ip,
+            "details": details,
+            "timestamp": timezone.now().isoformat(),
         }
 
         security_logger.warning(
-            f"Webhook rejected: reason={reason}, ip={source_ip}",
-            extra={'security_data': log_data}
+            f"Webhook rejected: reason={reason}, ip={source_ip}", extra={"security_data": log_data}
         )
 
-        self._increment_metric('webhooks_rejected')
+        self._increment_metric("webhooks_rejected")
 
     def log_rate_limit_hit(
         self,
@@ -344,20 +344,20 @@ class MonitoringService:
     ) -> None:
         """Log rate limit being hit."""
         log_data = {
-            'event': 'rate_limit_hit',
-            'identifier': identifier[:20] + '...' if len(identifier) > 20 else identifier,
-            'endpoint': endpoint,
-            'limit': limit,
-            'window_seconds': window_seconds,
-            'timestamp': timezone.now().isoformat(),
+            "event": "rate_limit_hit",
+            "identifier": identifier[:20] + "..." if len(identifier) > 20 else identifier,
+            "endpoint": endpoint,
+            "limit": limit,
+            "window_seconds": window_seconds,
+            "timestamp": timezone.now().isoformat(),
         }
 
         security_logger.warning(
             f"Rate limit hit: endpoint={endpoint}, limit={limit}/{window_seconds}s",
-            extra={'security_data': log_data}
+            extra={"security_data": log_data},
         )
 
-        self._increment_metric('rate_limits_hit')
+        self._increment_metric("rate_limits_hit")
 
     # -------------------------------------------------------------------------
     # API Error Logging
@@ -373,21 +373,21 @@ class MonitoringService:
     ) -> None:
         """Log Iyzico API error."""
         log_data = {
-            'event': 'api_error',
-            'endpoint': endpoint,
-            'error_code': error_code,
-            'error_message': error_message,
-            'response_time_ms': response_time_ms,
-            'request_id': request_id,
-            'timestamp': timezone.now().isoformat(),
+            "event": "api_error",
+            "endpoint": endpoint,
+            "error_code": error_code,
+            "error_message": error_message,
+            "response_time_ms": response_time_ms,
+            "request_id": request_id,
+            "timestamp": timezone.now().isoformat(),
         }
 
         logger.error(
             f"Iyzico API error: endpoint={endpoint}, error={error_code}",
-            extra={'api_data': log_data}
+            extra={"api_data": log_data},
         )
 
-        self._increment_metric('api_errors')
+        self._increment_metric("api_errors")
 
     # -------------------------------------------------------------------------
     # Metrics Helpers
@@ -411,7 +411,7 @@ class MonitoringService:
         """Record an amount metric."""
         cache_key = f"{self.METRICS_KEY_PREFIX}{metric_name}_{currency}"
         try:
-            current = Decimal(str(cache.get(cache_key, '0.00')))
+            current = Decimal(str(cache.get(cache_key, "0.00")))
             cache.set(cache_key, str(current + amount), timeout=86400)
         except Exception as e:
             logger.debug(f"Failed to record amount {metric_name}: {e}")
@@ -429,14 +429,14 @@ class MonitoringService:
                 failure_rate = failures / attempts
                 if failure_rate > self.failure_rate_threshold:
                     self._send_alert(
-                        'high_failure_rate',
+                        "high_failure_rate",
                         f"Payment failure rate ({failure_rate:.1%}) exceeds threshold "
                         f"({self.failure_rate_threshold:.1%})",
-                        severity='high',
+                        severity="high",
                         data={
-                            'attempts': attempts,
-                            'failures': failures,
-                            'failure_rate': failure_rate,
+                            "attempts": attempts,
+                            "failures": failures,
+                            "failure_rate": failure_rate,
                         },
                     )
         except Exception as e:
@@ -446,7 +446,7 @@ class MonitoringService:
         self,
         alert_type: str,
         message: str,
-        severity: str = 'medium',
+        severity: str = "medium",
         data: Optional[Dict] = None,
     ) -> None:
         """
@@ -456,22 +456,23 @@ class MonitoringService:
         (PagerDuty, Slack, email, etc.).
         """
         alert_data = {
-            'alert_type': alert_type,
-            'message': message,
-            'severity': severity,
-            'data': data,
-            'timestamp': timezone.now().isoformat(),
+            "alert_type": alert_type,
+            "message": message,
+            "severity": severity,
+            "data": data,
+            "timestamp": timezone.now().isoformat(),
         }
 
         # Log the alert
         logger.warning(
             f"ALERT [{severity.upper()}]: {alert_type} - {message}",
-            extra={'alert_data': alert_data}
+            extra={"alert_data": alert_data},
         )
 
         # Send to Django signals for custom handling
         try:
             from .signals import payment_alert
+
             payment_alert.send(
                 sender=self.__class__,
                 alert_type=alert_type,
@@ -494,26 +495,35 @@ class MonitoringService:
             Dictionary with all current metrics.
         """
         return {
-            'payment_attempts': cache.get(f"{self.METRICS_KEY_PREFIX}payment_attempts", 0),
-            'payment_successes': cache.get(f"{self.METRICS_KEY_PREFIX}payment_successes", 0),
-            'payment_failures': cache.get(f"{self.METRICS_KEY_PREFIX}payment_failures", 0),
-            'billing_attempts': cache.get(f"{self.METRICS_KEY_PREFIX}billing_attempts", 0),
-            'double_billing_prevented': cache.get(f"{self.METRICS_KEY_PREFIX}double_billing_prevented", 0),
-            'api_errors': cache.get(f"{self.METRICS_KEY_PREFIX}api_errors", 0),
-            'webhooks_rejected': cache.get(f"{self.METRICS_KEY_PREFIX}webhooks_rejected", 0),
-            'rate_limits_hit': cache.get(f"{self.METRICS_KEY_PREFIX}rate_limits_hit", 0),
-            'payment_volume_TRY': cache.get(f"{self.METRICS_KEY_PREFIX}payment_volume_TRY", '0.00'),
-            'payment_volume_USD': cache.get(f"{self.METRICS_KEY_PREFIX}payment_volume_USD", '0.00'),
-            'payment_volume_EUR': cache.get(f"{self.METRICS_KEY_PREFIX}payment_volume_EUR", '0.00'),
+            "payment_attempts": cache.get(f"{self.METRICS_KEY_PREFIX}payment_attempts", 0),
+            "payment_successes": cache.get(f"{self.METRICS_KEY_PREFIX}payment_successes", 0),
+            "payment_failures": cache.get(f"{self.METRICS_KEY_PREFIX}payment_failures", 0),
+            "billing_attempts": cache.get(f"{self.METRICS_KEY_PREFIX}billing_attempts", 0),
+            "double_billing_prevented": cache.get(
+                f"{self.METRICS_KEY_PREFIX}double_billing_prevented", 0
+            ),
+            "api_errors": cache.get(f"{self.METRICS_KEY_PREFIX}api_errors", 0),
+            "webhooks_rejected": cache.get(f"{self.METRICS_KEY_PREFIX}webhooks_rejected", 0),
+            "rate_limits_hit": cache.get(f"{self.METRICS_KEY_PREFIX}rate_limits_hit", 0),
+            "payment_volume_TRY": cache.get(f"{self.METRICS_KEY_PREFIX}payment_volume_TRY", "0.00"),
+            "payment_volume_USD": cache.get(f"{self.METRICS_KEY_PREFIX}payment_volume_USD", "0.00"),
+            "payment_volume_EUR": cache.get(f"{self.METRICS_KEY_PREFIX}payment_volume_EUR", "0.00"),
         }
 
     def reset_metrics(self) -> None:
         """Reset all metrics (useful for testing)."""
         metric_keys = [
-            'payment_attempts', 'payment_successes', 'payment_failures',
-            'billing_attempts', 'double_billing_prevented', 'api_errors',
-            'webhooks_rejected', 'rate_limits_hit',
-            'payment_volume_TRY', 'payment_volume_USD', 'payment_volume_EUR',
+            "payment_attempts",
+            "payment_successes",
+            "payment_failures",
+            "billing_attempts",
+            "double_billing_prevented",
+            "api_errors",
+            "webhooks_rejected",
+            "rate_limits_hit",
+            "payment_volume_TRY",
+            "payment_volume_USD",
+            "payment_volume_EUR",
         ]
         for key in metric_keys:
             cache.delete(f"{self.METRICS_KEY_PREFIX}{key}")
@@ -550,6 +560,7 @@ def monitor_timing(metric_name: str):
         ...     # Processing logic
         ...     pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -560,5 +571,7 @@ def monitor_timing(metric_name: str):
             finally:
                 duration_ms = (time.time() - start_time) * 1000
                 logger.debug(f"{metric_name} completed in {duration_ms:.2f}ms")
+
         return wrapper
+
     return decorator

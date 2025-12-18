@@ -95,7 +95,7 @@ class TestRefundResponse:
 class TestClientRefund:
     """Test IyzicoClient refund functionality."""
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_refund_payment_full(self, mock_refund_class, sample_refund_response):
         """Test full refund of a payment."""
         # Setup mock
@@ -116,7 +116,7 @@ class TestClientRefund:
         assert call_args["ip"] == "85.34.78.112"
         assert "price" not in call_args  # Full refund, no amount specified
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_refund_payment_partial(self, mock_refund_class, sample_refund_response):
         """Test partial refund of a payment."""
         # Setup mock
@@ -137,7 +137,7 @@ class TestClientRefund:
         assert call_args["paymentTransactionId"] == "test-payment-123"
         assert call_args["price"] == "50.00"
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_refund_payment_with_reason(self, mock_refund_class, sample_refund_response):
         """Test refund with reason."""
         # Setup mock
@@ -146,10 +146,7 @@ class TestClientRefund:
         mock_refund_class.return_value = mock_refund
 
         client = IyzicoClient()
-        response = client.refund_payment(
-            "test-payment-123",
-            reason="Customer request"
-        )
+        response = client.refund_payment("test-payment-123", reason="Customer request")
 
         assert response.is_successful() is True
 
@@ -157,7 +154,7 @@ class TestClientRefund:
         call_args = mock_refund.create.call_args[0][0]
         assert call_args["description"] == "Customer request"
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_refund_payment_failed(self, mock_refund_class, sample_failed_refund):
         """Test failed refund."""
         # Setup mock
@@ -182,7 +179,7 @@ class TestClientRefund:
 
         assert "Payment ID is required" in str(exc_info.value)
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_refund_payment_api_exception(self, mock_refund_class):
         """Test refund when API raises exception."""
         # Setup mock to raise exception
@@ -202,7 +199,7 @@ class TestClientRefund:
 class TestModelRefund:
     """Test model refund functionality."""
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_process_full_refund(self, mock_refund_class, sample_refund_response):
         """Test processing full refund through model."""
         # Setup mock
@@ -228,7 +225,7 @@ class TestModelRefund:
         payment.refresh_from_db()
         assert payment.status == PaymentStatus.REFUNDED
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_process_partial_refund(self, mock_refund_class):
         """Test processing partial refund through model."""
         # Setup mock
@@ -262,7 +259,7 @@ class TestModelRefund:
         payment.refresh_from_db()
         assert payment.status == PaymentStatus.REFUND_PENDING
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_process_refund_with_reason(self, mock_refund_class, sample_refund_response):
         """Test processing refund with reason."""
         # Setup mock
@@ -319,7 +316,7 @@ class TestModelRefund:
 
         assert "Payment ID is missing" in str(exc_info.value)
 
-    @patch('django_iyzico.client.iyzipay.Refund')
+    @patch("django_iyzico.client.iyzipay.Refund")
     def test_process_refund_signal_sent(self, mock_refund_class, sample_refund_response):
         """Test that refund signal is sent."""
         from django_iyzico.signals import payment_refunded

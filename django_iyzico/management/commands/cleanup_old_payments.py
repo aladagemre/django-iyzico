@@ -105,10 +105,12 @@ class Command(BaseCommand):
 
         # Add refunded status if not keeping them
         if not keep_refunded:
-            failed_statuses.extend([
-                PaymentStatus.REFUNDED,
-                PaymentStatus.REFUND_PENDING,
-            ])
+            failed_statuses.extend(
+                [
+                    PaymentStatus.REFUNDED,
+                    PaymentStatus.REFUND_PENDING,
+                ]
+            )
 
         old_failed = PaymentModel.objects.filter(
             created_at__lt=cutoff_date,
@@ -133,9 +135,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Failed/Cancelled (older than {days} days): {failed_count}")
         self.stdout.write(f"Successful (older than {keep_successful} days): {successful_count}")
         self.stdout.write("=" * 60)
-        self.stdout.write(
-            self.style.WARNING(f"TOTAL TO DELETE: {total_count} payments")
-        )
+        self.stdout.write(self.style.WARNING(f"TOTAL TO DELETE: {total_count} payments"))
         self.stdout.write("=" * 60 + "\n")
 
         if total_count == 0:
@@ -148,15 +148,11 @@ class Command(BaseCommand):
 
         # Export if requested
         if export_path and not dry_run:
-            self._export_payments(
-                old_failed, old_successful, export_path, options["verbosity"]
-            )
+            self._export_payments(old_failed, old_successful, export_path, options["verbosity"])
 
         if dry_run:
             self.stdout.write(
-                self.style.WARNING(
-                    "\nDRY RUN MODE - No deletions will be performed\n"
-                )
+                self.style.WARNING("\nDRY RUN MODE - No deletions will be performed\n")
             )
             return
 
@@ -167,9 +163,7 @@ class Command(BaseCommand):
                     f"\nYou are about to permanently delete {total_count} payment records!"
                 )
             )
-            self.stdout.write(
-                self.style.WARNING("This action cannot be undone.\n")
-            )
+            self.stdout.write(self.style.WARNING("This action cannot be undone.\n"))
 
             confirm = input("Type 'yes' to confirm deletion: ")
             if confirm.lower() != "yes":
@@ -192,9 +186,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Failed/Cancelled payments deleted: {deleted_failed}")
             self.stdout.write(f"Successful payments deleted: {deleted_successful}")
             self.stdout.write("=" * 60)
-            self.stdout.write(
-                self.style.SUCCESS(f"Total records deleted: {total_deleted}")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Total records deleted: {total_deleted}"))
             self.stdout.write("=" * 60 + "\n")
 
             # Show detailed breakdown if verbose
@@ -218,33 +210,34 @@ class Command(BaseCommand):
             Model class
         """
         from importlib import import_module
-        
+
         try:
             # First try direct import (e.g., tests.models.TestPayment)
             if "." in model_path:
                 parts = model_path.rsplit(".", 1)
                 module_path, model_name = parts
-                
+
                 try:
                     module = import_module(module_path)
                     return getattr(module, model_name)
                 except (ImportError, AttributeError):
                     pass
-            
+
             # Try Django app registry
             parts = model_path.rsplit(".", 1)
             if len(parts) == 2:
                 app_label = parts[0].split(".")[-1]
                 model_name = parts[1]
-                
+
                 try:
                     return apps.get_model(app_label, model_name)
                 except LookupError:
                     pass
-            
+
             raise ValueError(f"Could not import model '{model_path}'")
         except Exception as e:
             raise ValueError(f"Failed to import model: {e}")
+
     def _show_sample_payments(self, old_failed, old_successful):
         """Show sample of payments that will be deleted."""
         self.stdout.write("Sample of payments to be deleted:\n")
@@ -311,34 +304,40 @@ class Command(BaseCommand):
 
                 # Export failed payments
                 for payment in old_failed:
-                    writer.writerow({
-                        "payment_id": payment.payment_id or "",
-                        "conversation_id": payment.conversation_id or "",
-                        "status": payment.status,
-                        "amount": str(payment.amount),
-                        "currency": payment.currency,
-                        "buyer_email": payment.buyer_email or "",
-                        "buyer_name": payment.get_buyer_full_name(),
-                        "created_at": payment.created_at.isoformat(),
-                        "updated_at": payment.updated_at.isoformat(),
-                    })
+                    writer.writerow(
+                        {
+                            "payment_id": payment.payment_id or "",
+                            "conversation_id": payment.conversation_id or "",
+                            "status": payment.status,
+                            "amount": str(payment.amount),
+                            "currency": payment.currency,
+                            "buyer_email": payment.buyer_email or "",
+                            "buyer_name": payment.get_buyer_full_name(),
+                            "created_at": payment.created_at.isoformat(),
+                            "updated_at": payment.updated_at.isoformat(),
+                        }
+                    )
 
                 # Export successful payments
                 for payment in old_successful:
-                    writer.writerow({
-                        "payment_id": payment.payment_id or "",
-                        "conversation_id": payment.conversation_id or "",
-                        "status": payment.status,
-                        "amount": str(payment.amount),
-                        "currency": payment.currency,
-                        "buyer_email": payment.buyer_email or "",
-                        "buyer_name": payment.get_buyer_full_name(),
-                        "created_at": payment.created_at.isoformat(),
-                        "updated_at": payment.updated_at.isoformat(),
-                    })
+                    writer.writerow(
+                        {
+                            "payment_id": payment.payment_id or "",
+                            "conversation_id": payment.conversation_id or "",
+                            "status": payment.status,
+                            "amount": str(payment.amount),
+                            "currency": payment.currency,
+                            "buyer_email": payment.buyer_email or "",
+                            "buyer_name": payment.get_buyer_full_name(),
+                            "created_at": payment.created_at.isoformat(),
+                            "updated_at": payment.updated_at.isoformat(),
+                        }
+                    )
 
             self.stdout.write(
-                self.style.SUCCESS(f"Exported {old_failed.count() + old_successful.count()} payments to {export_path}\n")
+                self.style.SUCCESS(
+                    f"Exported {old_failed.count() + old_successful.count()} payments to {export_path}\n"
+                )
             )
 
         except Exception as e:

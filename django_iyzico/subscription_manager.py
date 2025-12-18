@@ -98,9 +98,7 @@ class SubscriptionManager:
         """
         # Validate plan can accept subscribers
         if not plan.can_accept_subscribers():
-            raise IyzicoValidationException(
-                "Subscription plan is not available or at capacity"
-            )
+            raise IyzicoValidationException("Subscription plan is not available or at capacity")
 
         # Set start date
         if start_date is None:
@@ -156,7 +154,7 @@ class SubscriptionManager:
 
             if payment.is_successful():
                 subscription.status = SubscriptionStatus.ACTIVE
-                subscription.save(update_fields=['status'])
+                subscription.save(update_fields=["status"])
                 logger.info(f"Subscription {subscription.id} activated after initial payment")
 
                 # Register card with Iyzico and store payment method for recurring billing
@@ -173,15 +171,18 @@ class SubscriptionManager:
                 subscription.status = SubscriptionStatus.PAST_DUE
                 subscription.failed_payment_count = 1
                 subscription.last_payment_error = payment.error_message or "Payment failed"
-                subscription.save(update_fields=[
-                    'status',
-                    'failed_payment_count',
-                    'last_payment_error',
-                ])
+                subscription.save(
+                    update_fields=[
+                        "status",
+                        "failed_payment_count",
+                        "last_payment_error",
+                    ]
+                )
                 logger.warning(f"Subscription {subscription.id} initial payment failed")
 
         # Import and send signal
         from .signals import subscription_created
+
         subscription_created.send(
             sender=Subscription,
             subscription=subscription,
@@ -252,19 +253,15 @@ class SubscriptionManager:
                     f"User must add a payment method before recurring billing can proceed.",
                     error_code="NO_PAYMENT_METHOD",
                 )
-            logger.info(
-                f"Using stored payment method for subscription {locked_subscription.id}"
-            )
+            logger.info(f"Using stored payment method for subscription {locked_subscription.id}")
         else:
-            logger.info(
-                f"Using provided payment method for subscription {locked_subscription.id}"
-            )
+            logger.info(f"Using provided payment method for subscription {locked_subscription.id}")
 
         # Check if already billed recently AFTER acquiring lock (critical for race condition prevention)
         # This is the second line of defense after the lock
         recent_payment = locked_subscription.payments.filter(
             created_at__gte=timezone.now() - timedelta(hours=1),
-            status='success',
+            status="success",
         ).first()
 
         if recent_payment:
@@ -333,6 +330,7 @@ class SubscriptionManager:
 
         # Generate a temporary basket ID (will be updated with payment ID)
         import uuid
+
         temp_basket_id = f"SUB-{subscription.id}-{uuid.uuid4().hex[:8]}"
 
         # Get buyer and address info (validates user profile)
@@ -348,26 +346,28 @@ class SubscriptionManager:
             raise
 
         # Prepare payment basket
-        basket_items = [{
-            'id': str(subscription.plan.id),
-            'name': subscription.plan.name,
-            'category1': 'Subscription',
-            'itemType': 'VIRTUAL',
-            'price': str(amount),
-        }]
+        basket_items = [
+            {
+                "id": str(subscription.plan.id),
+                "name": subscription.plan.name,
+                "category1": "Subscription",
+                "itemType": "VIRTUAL",
+                "price": str(amount),
+            }
+        ]
 
         # Prepare order data
         order_data = {
-            'price': str(amount),
-            'paidPrice': str(amount),
-            'currency': currency,
-            'basketId': temp_basket_id,
-            'conversationId': temp_basket_id,
+            "price": str(amount),
+            "paidPrice": str(amount),
+            "currency": currency,
+            "basketId": temp_basket_id,
+            "conversationId": temp_basket_id,
         }
 
         # Update subscription's last payment attempt timestamp
         subscription.last_payment_attempt = timezone.now()
-        subscription.save(update_fields=['last_payment_attempt'])
+        subscription.save(update_fields=["last_payment_attempt"])
 
         logger.info(
             f"Processing subscription payment for subscription {subscription.id} "
@@ -376,23 +376,21 @@ class SubscriptionManager:
 
         # Process payment via Iyzico API FIRST
         payment_id = None
-        status = 'failure'
+        status = "failure"
         error_code = None
         error_message = None
 
         try:
             # Detect if using stored payment method (token-based) or full card details
-            is_token_payment = 'cardToken' in payment_method and 'cardUserKey' in payment_method
+            is_token_payment = "cardToken" in payment_method and "cardUserKey" in payment_method
 
             if is_token_payment:
                 # Use token-based payment API for recurring billing
-                logger.debug(
-                    f"Using token-based payment for subscription {subscription.id}"
-                )
+                logger.debug(f"Using token-based payment for subscription {subscription.id}")
                 response = self.client.create_payment_with_token(
                     order_data=order_data,
-                    card_token=payment_method['cardToken'],
-                    card_user_key=payment_method['cardUserKey'],
+                    card_token=payment_method["cardToken"],
+                    card_user_key=payment_method["cardUserKey"],
                     buyer=buyer_info,
                     billing_address=address_info,
                     shipping_address=address_info,
@@ -400,9 +398,7 @@ class SubscriptionManager:
                 )
             else:
                 # Use regular payment API with full card details
-                logger.debug(
-                    f"Using full card payment for subscription {subscription.id}"
-                )
+                logger.debug(f"Using full card payment for subscription {subscription.id}")
                 response = self.client.create_payment(
                     order_data=order_data,
                     payment_card=payment_method,
@@ -414,11 +410,11 @@ class SubscriptionManager:
 
             # Extract response data
             payment_id = response.payment_id
-            status = 'success' if response.status == 'success' else 'failure'
+            status = "success" if response.status == "success" else "failure"
             error_code = response.error_code
             error_message = response.error_message
 
-            if status == 'success':
+            if status == "success":
                 logger.info(
                     f"Subscription payment successful for subscription {subscription.id}, "
                     f"Iyzico payment_id: {payment_id}"
@@ -433,33 +429,25 @@ class SubscriptionManager:
             # Card-specific errors (declined, insufficient funds, etc.)
             error_code = e.error_code
             error_message = f"Card error: {str(e)}"
-            logger.warning(
-                f"Card error for subscription {subscription.id}: {e}"
-            )
+            logger.warning(f"Card error for subscription {subscription.id}: {e}")
 
         except PaymentError as e:
             # Payment processing errors
             error_code = e.error_code
             error_message = f"Payment error: {str(e)}"
-            logger.warning(
-                f"Payment error for subscription {subscription.id}: {e}"
-            )
+            logger.warning(f"Payment error for subscription {subscription.id}: {e}")
 
         except IyzicoAPIException as e:
             # API errors (might be temporary)
             error_code = e.error_code
             error_message = f"API error: {str(e)}"
-            logger.error(
-                f"API error for subscription {subscription.id}: {e}"
-            )
+            logger.error(f"API error for subscription {subscription.id}: {e}")
 
         except Exception as e:
             # Unexpected errors - explicitly set error_code for clarity
             error_code = None
             error_message = f"Unexpected error: {str(e)}"
-            logger.exception(
-                f"Unexpected error processing subscription {subscription.id}"
-            )
+            logger.exception(f"Unexpected error processing subscription {subscription.id}")
 
         # NOW create the database record with the actual result
         # This prevents orphaned 'pending' records
@@ -490,8 +478,8 @@ class SubscriptionManager:
         # Move to next billing period
         billing_interval_days = subscription.plan.get_billing_interval_days()
         subscription.current_period_start = subscription.current_period_end
-        subscription.current_period_end = (
-            subscription.current_period_end + timedelta(days=billing_interval_days)
+        subscription.current_period_end = subscription.current_period_end + timedelta(
+            days=billing_interval_days
         )
         subscription.next_billing_date = subscription.current_period_end
 
@@ -506,6 +494,7 @@ class SubscriptionManager:
 
         # Send signal
         from .signals import subscription_payment_succeeded
+
         subscription_payment_succeeded.send(
             sender=Subscription,
             subscription=subscription,
@@ -529,6 +518,7 @@ class SubscriptionManager:
 
         # Send signal
         from .signals import subscription_payment_failed
+
         subscription_payment_failed.send(
             sender=Subscription,
             subscription=subscription,
@@ -572,9 +562,7 @@ class SubscriptionManager:
             # Cancel at end of period
             subscription.cancel_at_period_end = True
             subscription.save()
-            logger.info(
-                f"Subscription {subscription.id} marked for cancellation at period end"
-            )
+            logger.info(f"Subscription {subscription.id} marked for cancellation at period end")
         else:
             # Cancel immediately
             subscription.status = SubscriptionStatus.CANCELLED
@@ -584,6 +572,7 @@ class SubscriptionManager:
 
         # Send signal
         from .signals import subscription_cancelled
+
         subscription_cancelled.send(
             sender=Subscription,
             subscription=subscription,
@@ -615,6 +604,7 @@ class SubscriptionManager:
 
         # Send signal
         from .signals import subscription_paused
+
         subscription_paused.send(
             sender=Subscription,
             subscription=subscription,
@@ -645,6 +635,7 @@ class SubscriptionManager:
 
         # Send signal
         from .signals import subscription_resumed
+
         subscription_resumed.send(
             sender=Subscription,
             subscription=subscription,
@@ -693,9 +684,7 @@ class SubscriptionManager:
         if prorate:
             # Calculate prorated charge
             days_remaining = (subscription.current_period_end - timezone.now()).days
-            total_days = (
-                subscription.current_period_end - subscription.current_period_start
-            ).days
+            total_days = (subscription.current_period_end - subscription.current_period_start).days
             proration_factor = Decimal(str(days_remaining / max(total_days, 1)))
             price_difference = new_plan.price - old_plan.price
             prorated_charge = price_difference * proration_factor
@@ -710,8 +699,7 @@ class SubscriptionManager:
         subscription.save()
 
         logger.info(
-            f"Subscription {subscription.id} upgraded from {old_plan.name} "
-            f"to {new_plan.name}"
+            f"Subscription {subscription.id} upgraded from {old_plan.name} " f"to {new_plan.name}"
         )
 
         return subscription
@@ -749,9 +737,9 @@ class SubscriptionManager:
 
         if at_period_end:
             # Store downgrade in metadata to apply later
-            subscription.metadata['pending_downgrade'] = {
-                'new_plan_id': new_plan.id,
-                'scheduled_at': timezone.now().isoformat(),
+            subscription.metadata["pending_downgrade"] = {
+                "new_plan_id": new_plan.id,
+                "scheduled_at": timezone.now().isoformat(),
             }
             subscription.save()
 
@@ -804,7 +792,7 @@ class SubscriptionManager:
             contain the required data.
         """
         # Get profile data source - can be user model or related profile
-        profile_attr = getattr(settings, 'IYZICO_USER_PROFILE_ATTR', None)
+        profile_attr = getattr(settings, "IYZICO_USER_PROFILE_ATTR", None)
         if profile_attr:
             profile = getattr(user, profile_attr, None)
             if not profile:
@@ -826,19 +814,19 @@ class SubscriptionManager:
                     f"Required field '{field_name}' missing for user {user.id}",
                     error_code="MISSING_REQUIRED_FIELD",
                 )
-            return str(value) if value else ''
+            return str(value) if value else ""
 
         # Get required fields with validation
-        first_name = get_field('first_name', required=True)
-        last_name = get_field('last_name', required=True)
-        email = get_field('email', required=True)
+        first_name = get_field("first_name", required=True)
+        last_name = get_field("last_name", required=True)
+        email = get_field("email", required=True)
 
         # Identity number - required for Turkish transactions
-        identity_number = get_field('identity_number')
+        identity_number = get_field("identity_number")
         if not identity_number:
-            identity_number = get_field('tc_kimlik_no')  # Alternative field name
+            identity_number = get_field("tc_kimlik_no")  # Alternative field name
         if not identity_number:
-            identity_number = get_field('identityNumber')
+            identity_number = get_field("identityNumber")
 
         # Validate identity number format (Turkish TC Kimlik: 11 digits)
         if identity_number:
@@ -856,25 +844,25 @@ class SubscriptionManager:
             )
 
         # Address fields
-        address = get_field('address') or get_field('registration_address')
+        address = get_field("address") or get_field("registration_address")
         if not address:
             raise IyzicoValidationException(
                 f"Registration address is required for user {user.id}",
                 error_code="MISSING_ADDRESS",
             )
 
-        city = get_field('city')
+        city = get_field("city")
         if not city:
             raise IyzicoValidationException(
                 f"City is required for user {user.id}",
                 error_code="MISSING_CITY",
             )
 
-        country = get_field('country') or 'Turkey'
+        country = get_field("country") or "Turkey"
 
         # IP address - get from user's last login or metadata
         # In production, this should come from the request context
-        ip_address = get_field('last_login_ip') or get_field('ip_address')
+        ip_address = get_field("last_login_ip") or get_field("ip_address")
         if not ip_address:
             # Use iyzico_settings for IP validation configuration
             from .settings import iyzico_settings
@@ -893,19 +881,19 @@ class SubscriptionManager:
             )
 
         # Phone number (optional but recommended)
-        phone = get_field('phone') or get_field('gsm_number') or get_field('phone_number') or ''
+        phone = get_field("phone") or get_field("gsm_number") or get_field("phone_number") or ""
 
         return {
-            'id': str(user.id),
-            'name': first_name,
-            'surname': last_name,
-            'email': email,
-            'identityNumber': identity_number,
-            'registrationAddress': address,
-            'city': city,
-            'country': country,
-            'ip': ip_address,
-            'gsmNumber': phone,
+            "id": str(user.id),
+            "name": first_name,
+            "surname": last_name,
+            "email": email,
+            "identityNumber": identity_number,
+            "registrationAddress": address,
+            "city": city,
+            "country": country,
+            "ip": ip_address,
+            "gsmNumber": phone,
         }
 
     def _get_address_info(self, user: User) -> Dict[str, str]:
@@ -924,7 +912,7 @@ class SubscriptionManager:
             IyzicoValidationException: If required address fields are missing.
         """
         # Get profile data source
-        profile_attr = getattr(settings, 'IYZICO_USER_PROFILE_ATTR', None)
+        profile_attr = getattr(settings, "IYZICO_USER_PROFILE_ATTR", None)
         if profile_attr:
             profile = getattr(user, profile_attr, None)
         else:
@@ -935,16 +923,16 @@ class SubscriptionManager:
             value = getattr(profile, field_name, None) if profile else None
             if not value:
                 value = getattr(user, field_name, None)
-            return str(value) if value else ''
+            return str(value) if value else ""
 
         # Get address fields
-        address = get_field('address') or get_field('billing_address')
-        city = get_field('city')
-        country = get_field('country') or 'Turkey'
+        address = get_field("address") or get_field("billing_address")
+        city = get_field("city")
+        country = get_field("country") or "Turkey"
 
         # Contact name
-        first_name = get_field('first_name') or 'User'
-        last_name = get_field('last_name') or ''
+        first_name = get_field("first_name") or "User"
+        last_name = get_field("last_name") or ""
         contact_name = f"{first_name} {last_name}".strip()
 
         if not address:
@@ -960,10 +948,10 @@ class SubscriptionManager:
             )
 
         return {
-            'address': address,
-            'contactName': contact_name,
-            'city': city,
-            'country': country,
+            "address": address,
+            "contactName": contact_name,
+            "city": city,
+            "country": country,
         }
 
     def _store_payment_method(
@@ -993,51 +981,51 @@ class SubscriptionManager:
             # Register card with Iyzico to get tokens
             card_result = self.client.register_card(
                 card_info={
-                    'cardHolderName': payment_card.get('cardHolderName'),
-                    'cardNumber': payment_card.get('cardNumber'),
-                    'expireMonth': payment_card.get('expireMonth'),
-                    'expireYear': payment_card.get('expireYear'),
-                    'cvc': payment_card.get('cvc'),
-                    'cardAlias': f"Card for {subscription.plan.name}",
+                    "cardHolderName": payment_card.get("cardHolderName"),
+                    "cardNumber": payment_card.get("cardNumber"),
+                    "expireMonth": payment_card.get("expireMonth"),
+                    "expireYear": payment_card.get("expireYear"),
+                    "cvc": payment_card.get("cvc"),
+                    "cardAlias": f"Card for {subscription.plan.name}",
                 },
                 buyer=buyer_info,
                 external_id=str(user.id),
             )
 
             # Map card association to CardBrand enum
-            card_association = card_result.get('card_association', '').upper()
+            card_association = card_result.get("card_association", "").upper()
             card_brand = CardBrand.OTHER
-            if 'VISA' in card_association:
+            if "VISA" in card_association:
                 card_brand = CardBrand.VISA
-            elif 'MASTER' in card_association:
+            elif "MASTER" in card_association:
                 card_brand = CardBrand.MASTERCARD
-            elif 'AMEX' in card_association or 'AMERICAN' in card_association:
+            elif "AMEX" in card_association or "AMERICAN" in card_association:
                 card_brand = CardBrand.AMEX
-            elif 'TROY' in card_association:
+            elif "TROY" in card_association:
                 card_brand = CardBrand.TROY
 
             # Create or update payment method
             payment_method, created = PaymentMethod.objects.update_or_create(
                 user=user,
-                card_token=card_result['card_token'],
+                card_token=card_result["card_token"],
                 defaults={
-                    'card_user_key': card_result['card_user_key'],
-                    'card_last_four': card_result['last_four_digits'],
-                    'card_brand': card_brand,
-                    'card_type': card_result.get('card_type'),
-                    'card_family': card_result.get('card_family'),
-                    'card_bank_name': card_result.get('card_bank_name'),
-                    'card_holder_name': card_result.get('card_holder_name'),
-                    'expiry_month': card_result['expiry_month'],
-                    'expiry_year': card_result['expiry_year'],
-                    'bin_number': card_result.get('bin_number'),
-                    'is_default': True,  # First card is default
-                    'is_active': True,
-                    'is_verified': True,  # Verified by successful payment
-                    'last_used_at': timezone.now(),
-                    'metadata': {
-                        'subscription_id': subscription.id,
-                        'plan_name': subscription.plan.name,
+                    "card_user_key": card_result["card_user_key"],
+                    "card_last_four": card_result["last_four_digits"],
+                    "card_brand": card_brand,
+                    "card_type": card_result.get("card_type"),
+                    "card_family": card_result.get("card_family"),
+                    "card_bank_name": card_result.get("card_bank_name"),
+                    "card_holder_name": card_result.get("card_holder_name"),
+                    "expiry_month": card_result["expiry_month"],
+                    "expiry_year": card_result["expiry_year"],
+                    "bin_number": card_result.get("bin_number"),
+                    "is_default": True,  # First card is default
+                    "is_active": True,
+                    "is_verified": True,  # Verified by successful payment
+                    "last_used_at": timezone.now(),
+                    "metadata": {
+                        "subscription_id": subscription.id,
+                        "plan_name": subscription.plan.name,
                     },
                 },
             )
@@ -1048,9 +1036,7 @@ class SubscriptionManager:
                     f"(subscription {subscription.id})"
                 )
             else:
-                logger.info(
-                    f"Updated payment method {payment_method.id} for user {user.id}"
-                )
+                logger.info(f"Updated payment method {payment_method.id} for user {user.id}")
 
         except Exception as e:
             logger.error(

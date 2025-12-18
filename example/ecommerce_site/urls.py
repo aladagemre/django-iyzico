@@ -10,19 +10,15 @@ from django.views.generic import TemplateView
 
 urlpatterns = [
     # Admin
-    path('admin/', admin.site.urls),
-
+    path("admin/", admin.site.urls),
     # Home page
-    path('', TemplateView.as_view(template_name='home.html'), name='home'),
-
+    path("", TemplateView.as_view(template_name="home.html"), name="home"),
     # Shop app (regular Django views)
-    path('shop/', include('shop.urls')),
-
+    path("shop/", include("shop.urls")),
     # API endpoints (Django REST Framework)
-    path('api/', include('shop.api_urls')),
-
+    path("api/", include("shop.api_urls")),
     # Iyzico payment gateway URLs (webhooks, 3DS callbacks)
-    path('payments/', include('django_iyzico.urls')),
+    path("payments/", include("django_iyzico.urls")),
 ]
 
 # Serve media files in development

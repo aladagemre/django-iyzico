@@ -443,9 +443,7 @@ class IyzicoClient:
 
             # Log response
             if response.is_successful():
-                logger.info(
-                    f"3DS initialized - conversation_id={response.conversation_id}"
-                )
+                logger.info(f"3DS initialized - conversation_id={response.conversation_id}")
             else:
                 logger.warning(
                     f"3DS initialization failed - error_code={response.error_code}, "
@@ -592,6 +590,7 @@ class IyzicoClient:
 
         # Validate IP address format
         import ipaddress as ip_lib
+
         try:
             ip_lib.ip_address(ip_address)
         except ValueError:
@@ -609,10 +608,7 @@ class IyzicoClient:
         # Add amount for partial refund
         if amount is not None:
             request_data["price"] = format_price(amount)
-            logger.info(
-                f"Initiating partial refund - payment_id={payment_id}, "
-                f"amount={amount}"
-            )
+            logger.info(f"Initiating partial refund - payment_id={payment_id}, " f"amount={amount}")
         else:
             logger.info(f"Initiating full refund - payment_id={payment_id}")
 

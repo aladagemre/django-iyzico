@@ -27,22 +27,23 @@ pytestmark = pytest.mark.django_db
 
 # ===== SubscriptionPlan Tests =====
 
+
 class TestSubscriptionPlan:
     """Tests for SubscriptionPlan model."""
 
     def test_create_subscription_plan(self):
         """Test creating a basic subscription plan."""
         plan = SubscriptionPlan.objects.create(
-            name='Basic Plan',
-            slug='basic',
-            price=Decimal('99.99'),
-            currency='TRY',
+            name="Basic Plan",
+            slug="basic",
+            price=Decimal("99.99"),
+            currency="TRY",
             billing_interval=BillingInterval.MONTHLY,
         )
 
-        assert plan.name == 'Basic Plan'
-        assert plan.price == Decimal('99.99')
-        assert plan.currency == 'TRY'
+        assert plan.name == "Basic Plan"
+        assert plan.price == Decimal("99.99")
+        assert plan.currency == "TRY"
         assert plan.billing_interval == BillingInterval.MONTHLY
         assert plan.billing_interval_count == 1
         assert plan.trial_period_days == 0
@@ -51,21 +52,21 @@ class TestSubscriptionPlan:
     def test_subscription_plan_str(self):
         """Test string representation."""
         plan = SubscriptionPlan.objects.create(
-            name='Premium',
-            slug='premium',
-            price=Decimal('199.99'),
-            currency='TRY',
+            name="Premium",
+            slug="premium",
+            price=Decimal("199.99"),
+            currency="TRY",
             billing_interval=BillingInterval.MONTHLY,
         )
 
-        assert str(plan) == 'Premium (199.99 TRY/Monthly)'
+        assert str(plan) == "Premium (199.99 TRY/Monthly)"
 
     def test_subscription_plan_with_trial(self):
         """Test plan with trial period."""
         plan = SubscriptionPlan.objects.create(
-            name='Trial Plan',
-            slug='trial',
-            price=Decimal('49.99'),
+            name="Trial Plan",
+            slug="trial",
+            price=Decimal("49.99"),
             trial_period_days=14,
         )
 
@@ -75,9 +76,9 @@ class TestSubscriptionPlan:
     def test_quarterly_billing_interval(self):
         """Test quarterly billing interval."""
         plan = SubscriptionPlan.objects.create(
-            name='Quarterly',
-            slug='quarterly',
-            price=Decimal('249.99'),
+            name="Quarterly",
+            slug="quarterly",
+            price=Decimal("249.99"),
             billing_interval=BillingInterval.QUARTERLY,
         )
 
@@ -86,9 +87,9 @@ class TestSubscriptionPlan:
     def test_custom_billing_interval_count(self):
         """Test custom billing interval count (e.g., every 3 months)."""
         plan = SubscriptionPlan.objects.create(
-            name='Every 3 Months',
-            slug='three-months',
-            price=Decimal('299.99'),
+            name="Every 3 Months",
+            slug="three-months",
+            price=Decimal("299.99"),
             billing_interval=BillingInterval.MONTHLY,
             billing_interval_count=3,
         )
@@ -99,28 +100,28 @@ class TestSubscriptionPlan:
     def test_plan_features_json(self):
         """Test storing features as JSON."""
         features = {
-            'storage': '100GB',
-            'users': 10,
-            'support': '24/7',
+            "storage": "100GB",
+            "users": 10,
+            "support": "24/7",
         }
 
         plan = SubscriptionPlan.objects.create(
-            name='Enterprise',
-            slug='enterprise',
-            price=Decimal('999.99'),
+            name="Enterprise",
+            slug="enterprise",
+            price=Decimal("999.99"),
             features=features,
         )
 
         assert plan.features == features
-        assert plan.features['storage'] == '100GB'
-        assert plan.features['users'] == 10
+        assert plan.features["storage"] == "100GB"
+        assert plan.features["users"] == 10
 
     def test_max_subscribers_limit(self):
         """Test max subscribers limit."""
         plan = SubscriptionPlan.objects.create(
-            name='Limited',
-            slug='limited',
-            price=Decimal('99.99'),
+            name="Limited",
+            slug="limited",
+            price=Decimal("99.99"),
             max_subscribers=100,
         )
 
@@ -130,9 +131,9 @@ class TestSubscriptionPlan:
     def test_inactive_plan_cannot_accept_subscribers(self):
         """Test inactive plan cannot accept subscribers."""
         plan = SubscriptionPlan.objects.create(
-            name='Inactive',
-            slug='inactive',
-            price=Decimal('99.99'),
+            name="Inactive",
+            slug="inactive",
+            price=Decimal("99.99"),
             is_active=False,
         )
 
@@ -141,9 +142,9 @@ class TestSubscriptionPlan:
     def test_plan_at_capacity_cannot_accept_subscribers(self, user):
         """Test plan at capacity cannot accept subscribers."""
         plan = SubscriptionPlan.objects.create(
-            name='Limited',
-            slug='limited',
-            price=Decimal('99.99'),
+            name="Limited",
+            slug="limited",
+            price=Decimal("99.99"),
             max_subscribers=1,
         )
 
@@ -164,39 +165,39 @@ class TestSubscriptionPlan:
         """Test validation for negative price."""
         with pytest.raises(ValidationError):
             plan = SubscriptionPlan(
-                name='Invalid',
-                slug='invalid',
-                price=Decimal('-10.00'),
+                name="Invalid",
+                slug="invalid",
+                price=Decimal("-10.00"),
             )
             plan.full_clean()
 
     def test_validation_negative_trial_period(self):
         """Test validation for negative trial period."""
         plan = SubscriptionPlan(
-            name='Invalid Trial',
-            slug='invalid-trial',
-            price=Decimal('99.99'),
+            name="Invalid Trial",
+            slug="invalid-trial",
+            price=Decimal("99.99"),
             trial_period_days=-7,
         )
 
         with pytest.raises(ValidationError) as exc_info:
             plan.clean()
 
-        assert 'trial_period_days' in exc_info.value.message_dict
+        assert "trial_period_days" in exc_info.value.message_dict
 
     def test_sort_order(self):
         """Test plans are ordered by sort_order and price."""
         plan1 = SubscriptionPlan.objects.create(
-            name='Expensive',
-            slug='expensive',
-            price=Decimal('999.99'),
+            name="Expensive",
+            slug="expensive",
+            price=Decimal("999.99"),
             sort_order=2,
         )
 
         plan2 = SubscriptionPlan.objects.create(
-            name='Cheap',
-            slug='cheap',
-            price=Decimal('9.99'),
+            name="Cheap",
+            slug="cheap",
+            price=Decimal("9.99"),
             sort_order=1,
         )
 
@@ -207,6 +208,7 @@ class TestSubscriptionPlan:
 
 # ===== Subscription Tests =====
 
+
 class TestSubscription:
     """Tests for Subscription model."""
 
@@ -214,10 +216,10 @@ class TestSubscription:
     def plan(self):
         """Create a test plan."""
         return SubscriptionPlan.objects.create(
-            name='Test Plan',
-            slug='test',
-            price=Decimal('99.99'),
-            currency='TRY',
+            name="Test Plan",
+            slug="test",
+            price=Decimal("99.99"),
+            currency="TRY",
         )
 
     def test_create_subscription(self, user, plan):
@@ -386,9 +388,9 @@ class TestSubscription:
         SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
@@ -396,15 +398,15 @@ class TestSubscription:
         SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now + timedelta(days=30),
             period_end=now + timedelta(days=60),
         )
 
         total = subscription.get_total_amount_paid()
-        assert total == Decimal('199.98')
+        assert total == Decimal("199.98")
 
     def test_get_successful_payment_count(self, user, plan):
         """Test counting successful payments."""
@@ -424,9 +426,9 @@ class TestSubscription:
         SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
@@ -434,9 +436,9 @@ class TestSubscription:
         SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='failure',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="failure",
             period_start=now + timedelta(days=30),
             period_end=now + timedelta(days=60),
         )
@@ -461,10 +463,11 @@ class TestSubscription:
         with pytest.raises(ValidationError) as exc_info:
             subscription.clean()
 
-        assert 'current_period_end' in exc_info.value.message_dict
+        assert "current_period_end" in exc_info.value.message_dict
 
 
 # ===== SubscriptionPayment Tests =====
+
 
 class TestSubscriptionPayment:
     """Tests for SubscriptionPayment model."""
@@ -473,9 +476,9 @@ class TestSubscriptionPayment:
     def subscription(self, user):
         """Create a test subscription."""
         plan = SubscriptionPlan.objects.create(
-            name='Test Plan',
-            slug='test',
-            price=Decimal('99.99'),
+            name="Test Plan",
+            slug="test",
+            price=Decimal("99.99"),
         )
 
         now = timezone.now()
@@ -497,15 +500,15 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
 
         assert payment.subscription == subscription
-        assert payment.amount == Decimal('99.99')
+        assert payment.amount == Decimal("99.99")
         assert payment.attempt_number == 1
         assert payment.is_retry is False
         assert payment.is_prorated is False
@@ -517,9 +520,9 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
@@ -534,9 +537,9 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='failure',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="failure",
             period_start=now,
             period_end=now + timedelta(days=30),
             attempt_number=2,
@@ -554,17 +557,17 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=15),
             is_prorated=True,
-            prorated_amount=Decimal('49.99'),
+            prorated_amount=Decimal("49.99"),
         )
 
         assert payment.is_prorated is True
-        assert payment.get_effective_amount() == Decimal('49.99')
+        assert payment.get_effective_amount() == Decimal("49.99")
 
     def test_get_effective_amount_not_prorated(self, user, subscription):
         """Test effective amount for non-prorated payment."""
@@ -573,14 +576,14 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
 
-        assert payment.get_effective_amount() == Decimal('99.99')
+        assert payment.get_effective_amount() == Decimal("99.99")
 
     def test_is_successful(self, user, subscription):
         """Test is_successful method."""
@@ -589,9 +592,9 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
@@ -605,9 +608,9 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='failure',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="failure",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
@@ -621,9 +624,9 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment.objects.create(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
         )
@@ -637,9 +640,9 @@ class TestSubscriptionPayment:
         payment = SubscriptionPayment(
             subscription=subscription,
             user=user,
-            amount=Decimal('99.99'),
-            currency='TRY',
-            status='success',
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
             period_start=now,
             period_end=now + timedelta(days=30),
             attempt_number=1,
@@ -649,16 +652,17 @@ class TestSubscriptionPayment:
         with pytest.raises(ValidationError) as exc_info:
             payment.clean()
 
-        assert 'is_retry' in exc_info.value.message_dict
+        assert "is_retry" in exc_info.value.message_dict
 
 
 # ===== Fixtures =====
+
 
 @pytest.fixture
 def user():
     """Create a test user."""
     return User.objects.create_user(
-        username='testuser',
-        email='test@example.com',
-        password='testpass123',
+        username="testuser",
+        email="test@example.com",
+        password="testpass123",
     )

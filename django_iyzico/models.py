@@ -566,9 +566,7 @@ class AbstractIyzicoPayment(models.Model):
         if save:
             self.save()
 
-    def mask_and_store_card_data(
-        self, payment_details: Dict[str, Any], save: bool = True
-    ) -> None:
+    def mask_and_store_card_data(self, payment_details: Dict[str, Any], save: bool = True) -> None:
         """
         Mask and store card data (last 4 digits only).
 
@@ -688,7 +686,7 @@ class AbstractIyzicoPayment(models.Model):
             Fee amount (Decimal)
         """
         if not self.has_installment() or not self.total_with_installment:
-            return Decimal('0.00')
+            return Decimal("0.00")
 
         return self.total_with_installment - self.amount
 
@@ -700,14 +698,14 @@ class AbstractIyzicoPayment(models.Model):
             Dictionary with all installment information
         """
         return {
-            'installment_count': self.installment,
-            'has_installment': self.has_installment(),
-            'installment_rate': self.installment_rate,
-            'monthly_amount': self.monthly_installment_amount,
-            'total_with_fees': self.total_with_installment,
-            'total_fee': self.get_installment_fee(),
-            'base_amount': self.amount,
-            'display': self.get_installment_display(),
+            "installment_count": self.installment,
+            "has_installment": self.has_installment(),
+            "installment_rate": self.installment_rate,
+            "monthly_amount": self.monthly_installment_amount,
+            "total_with_fees": self.total_with_installment,
+            "total_fee": self.get_installment_fee(),
+            "base_amount": self.amount,
+            "display": self.get_installment_display(),
         }
 
     # Multi-currency helper methods (added in v0.2.0)
@@ -730,6 +728,7 @@ class AbstractIyzicoPayment(models.Model):
             '$1,234.56 USD'
         """
         from .currency import format_amount
+
         return format_amount(self.amount, self.currency, show_symbol, show_code)
 
     def get_formatted_paid_amount(self, show_symbol: bool = True, show_code: bool = False) -> str:
@@ -744,6 +743,7 @@ class AbstractIyzicoPayment(models.Model):
             Formatted paid amount string
         """
         from .currency import format_amount
+
         amount = self.paid_amount if self.paid_amount else self.amount
         return format_amount(amount, self.currency, show_symbol, show_code)
 
@@ -760,6 +760,7 @@ class AbstractIyzicoPayment(models.Model):
             '$'
         """
         from .currency import get_currency_symbol
+
         return get_currency_symbol(self.currency)
 
     def get_currency_name(self) -> str:
@@ -775,6 +776,7 @@ class AbstractIyzicoPayment(models.Model):
             'Euro'
         """
         from .currency import get_currency_name
+
         return get_currency_name(self.currency)
 
     def convert_to_currency(self, target_currency: str, converter=None) -> Decimal:
@@ -842,10 +844,10 @@ class AbstractIyzicoPayment(models.Model):
             >>> payment.currency = 'USD'
             >>> try_amount = payment.get_amount_in_try()
         """
-        if self.is_currency('TRY'):
+        if self.is_currency("TRY"):
             return self.amount
 
-        return self.convert_to_currency('TRY', converter)
+        return self.convert_to_currency("TRY", converter)
 
     def get_currency_info(self) -> Dict[str, Any]:
         """
@@ -862,4 +864,5 @@ class AbstractIyzicoPayment(models.Model):
             'US Dollar'
         """
         from .currency import get_currency_info
+
         return get_currency_info(self.currency)

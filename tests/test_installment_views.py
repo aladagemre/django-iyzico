@@ -36,25 +36,28 @@ class TestInstallmentOptionsView(TestCase):
         self.factory = RequestFactory()
         self.view = InstallmentOptionsView()
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_installment_options_success(self, mock_client_class):
         """Test successfully getting installment options."""
         # Mock data
         mock_options = [
-            InstallmentOption(1, Decimal('100'), Decimal('100'), Decimal('100')),
-            InstallmentOption(3, Decimal('100'), Decimal('103'), Decimal('34.33'), Decimal('3.00')),
+            InstallmentOption(1, Decimal("100"), Decimal("100"), Decimal("100")),
+            InstallmentOption(3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3.00")),
         ]
-        mock_bank_info = BankInstallmentInfo('Akbank', 62, mock_options)
+        mock_bank_info = BankInstallmentInfo("Akbank", 62, mock_options)
 
         mock_client = MagicMock()
         mock_client.get_installment_info.return_value = [mock_bank_info]
         mock_client_class.return_value = mock_client
 
         # Create request
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         # Call view
         response = self.view.get(request)
@@ -62,112 +65,133 @@ class TestInstallmentOptionsView(TestCase):
         # Assert response
         assert response.status_code == 200
         data = json.loads(response.content)
-        assert data['success'] is True
-        assert len(data['banks']) == 1
-        assert data['banks'][0]['bank_name'] == 'Akbank'
+        assert data["success"] is True
+        assert len(data["banks"]) == 1
+        assert data["banks"][0]["bank_name"] == "Akbank"
 
     def test_get_installment_options_missing_bin(self):
         """Test with missing BIN parameter."""
-        request = self.factory.get('/installments/', {
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert data['success'] is False
-        assert 'BIN number is required' in data['error']
+        assert data["success"] is False
+        assert "BIN number is required" in data["error"]
 
     def test_get_installment_options_missing_amount(self):
         """Test with missing amount parameter."""
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert data['success'] is False
-        assert 'Amount is required' in data['error']
+        assert data["success"] is False
+        assert "Amount is required" in data["error"]
 
     def test_get_installment_options_invalid_amount(self):
         """Test with invalid amount format."""
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': 'invalid',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "invalid",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert data['success'] is False
-        assert 'Invalid amount format' in data['error']
+        assert data["success"] is False
+        assert "Invalid amount format" in data["error"]
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_installment_options_validation_error(self, mock_client_class):
         """Test handling validation error from client."""
         mock_client = MagicMock()
-        mock_client.get_installment_info.side_effect = IyzicoValidationException('Invalid BIN')
+        mock_client.get_installment_info.side_effect = IyzicoValidationException("Invalid BIN")
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/', {
-            'bin': '12345',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "12345",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert data['success'] is False
+        assert data["success"] is False
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_installment_options_api_error(self, mock_client_class):
         """Test handling API error."""
         mock_client = MagicMock()
-        mock_client.get_installment_info.side_effect = IyzicoAPIException('API error')
+        mock_client.get_installment_info.side_effect = IyzicoAPIException("API error")
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 500
         data = json.loads(response.content)
-        assert data['success'] is False
-        assert 'Unable to fetch installment options' in data['error']
+        assert data["success"] is False
+        assert "Unable to fetch installment options" in data["error"]
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_installment_options_unexpected_error(self, mock_client_class):
         """Test handling unexpected error."""
         mock_client = MagicMock()
-        mock_client.get_installment_info.side_effect = Exception('Unexpected error')
+        mock_client.get_installment_info.side_effect = Exception("Unexpected error")
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 500
         data = json.loads(response.content)
-        assert data['success'] is False
-        assert 'unexpected error' in data['error']
+        assert data["success"] is False
+        assert "unexpected error" in data["error"]
 
     def test_get_installment_options_empty_bin(self):
         """Test with empty BIN string."""
-        request = self.factory.get('/installments/', {
-            'bin': '   ',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "   ",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
@@ -175,10 +199,13 @@ class TestInstallmentOptionsView(TestCase):
 
     def test_get_installment_options_whitespace_amount(self):
         """Test with whitespace amount."""
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': '  100.00  ',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "  100.00  ",
+            },
+        )
 
         # Should strip whitespace and work
         response = self.view.get(request)
@@ -198,111 +225,126 @@ class TestBestInstallmentOptionsView(TestCase):
         self.factory = RequestFactory()
         self.view = BestInstallmentOptionsView()
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_best_options_success(self, mock_client_class):
         """Test successfully getting best options."""
         mock_options = [
-            InstallmentOption(3, Decimal('100'), Decimal('100'), Decimal('33.33')),
-            InstallmentOption(6, Decimal('100'), Decimal('105'), Decimal('17.50'), Decimal('5.00')),
+            InstallmentOption(3, Decimal("100"), Decimal("100"), Decimal("33.33")),
+            InstallmentOption(6, Decimal("100"), Decimal("105"), Decimal("17.50"), Decimal("5.00")),
         ]
 
         mock_client = MagicMock()
         mock_client.get_best_installment_options.return_value = mock_options
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/best/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/best/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 200
         data = json.loads(response.content)
-        assert data['success'] is True
-        assert len(data['options']) == 2
-        assert 'display' in data['options'][0]
+        assert data["success"] is True
+        assert len(data["options"]) == 2
+        assert "display" in data["options"][0]
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_best_options_with_max(self, mock_client_class):
         """Test getting best options with max limit."""
         mock_options = [
-            InstallmentOption(3, Decimal('100'), Decimal('100'), Decimal('33.33')),
+            InstallmentOption(3, Decimal("100"), Decimal("100"), Decimal("33.33")),
         ]
 
         mock_client = MagicMock()
         mock_client.get_best_installment_options.return_value = mock_options
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/best/', {
-            'bin': '554960',
-            'amount': '100.00',
-            'max': '3',
-        })
+        request = self.factory.get(
+            "/installments/best/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+                "max": "3",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 200
         mock_client.get_best_installment_options.assert_called_with(
-            bin_number='554960',
-            amount=Decimal('100.00'),
+            bin_number="554960",
+            amount=Decimal("100.00"),
             max_options=3,
         )
 
     def test_get_best_options_missing_params(self):
         """Test with missing parameters."""
-        request = self.factory.get('/installments/best/', {
-            'bin': '554960',
-        })
+        request = self.factory.get(
+            "/installments/best/",
+            {
+                "bin": "554960",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert data['success'] is False
+        assert data["success"] is False
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_best_options_api_error(self, mock_client_class):
         """Test handling API error."""
         mock_client = MagicMock()
-        mock_client.get_best_installment_options.side_effect = IyzicoAPIException('API error')
+        mock_client.get_best_installment_options.side_effect = IyzicoAPIException("API error")
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/best/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/best/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         assert response.status_code == 400
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_get_best_options_display_formatting(self, mock_client_class):
         """Test that display formatting is applied."""
         mock_option = InstallmentOption(
             3,
-            Decimal('100'),
-            Decimal('103'),
-            Decimal('34.33'),
-            Decimal('3.00'),
-            Decimal('3.00'),
+            Decimal("100"),
+            Decimal("103"),
+            Decimal("34.33"),
+            Decimal("3.00"),
+            Decimal("3.00"),
         )
 
         mock_client = MagicMock()
         mock_client.get_best_installment_options.return_value = [mock_option]
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/best/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/best/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         response = self.view.get(request)
 
         data = json.loads(response.content)
-        assert 'display' in data['options'][0]
-        assert '3x' in data['options'][0]['display']
+        assert "display" in data["options"][0]
+        assert "3x" in data["options"][0]["display"]
 
 
 # ============================================================================
@@ -318,34 +360,38 @@ class TestValidateInstallmentView(TestCase):
         self.factory = RequestFactory()
         self.view = ValidateInstallmentView()
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_validate_installment_valid(self, mock_client_class):
         """Test validating a valid installment."""
-        mock_option = InstallmentOption(3, Decimal('100'), Decimal('103'), Decimal('34.33'), Decimal('3.00'))
+        mock_option = InstallmentOption(
+            3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3.00")
+        )
 
         mock_client = MagicMock()
         mock_client.validate_installment_option.return_value = mock_option
         mock_client_class.return_value = mock_client
 
         request = self.factory.post(
-            '/installments/validate/',
-            data=json.dumps({
-                'bin': '554960',
-                'amount': '100.00',
-                'installment': 3,
-            }),
-            content_type='application/json',
+            "/installments/validate/",
+            data=json.dumps(
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    "installment": 3,
+                }
+            ),
+            content_type="application/json",
         )
 
         response = self.view.post(request)
 
         assert response.status_code == 200
         data = json.loads(response.content)
-        assert data['success'] is True
-        assert data['valid'] is True
-        assert data['option']['installment_number'] == 3
+        assert data["success"] is True
+        assert data["valid"] is True
+        assert data["option"]["installment_number"] == 3
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_validate_installment_invalid(self, mock_client_class):
         """Test validating an invalid installment."""
         mock_client = MagicMock()
@@ -353,71 +399,77 @@ class TestValidateInstallmentView(TestCase):
         mock_client_class.return_value = mock_client
 
         request = self.factory.post(
-            '/installments/validate/',
-            data=json.dumps({
-                'bin': '554960',
-                'amount': '100.00',
-                'installment': 9,
-            }),
-            content_type='application/json',
+            "/installments/validate/",
+            data=json.dumps(
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    "installment": 9,
+                }
+            ),
+            content_type="application/json",
         )
 
         response = self.view.post(request)
 
         assert response.status_code == 200
         data = json.loads(response.content)
-        assert data['success'] is True
-        assert data['valid'] is False
-        assert 'not available' in data['message']
+        assert data["success"] is True
+        assert data["valid"] is False
+        assert "not available" in data["message"]
 
     def test_validate_installment_invalid_json(self):
         """Test with invalid JSON."""
         request = self.factory.post(
-            '/installments/validate/',
-            data='invalid json',
-            content_type='application/json',
+            "/installments/validate/",
+            data="invalid json",
+            content_type="application/json",
         )
 
         response = self.view.post(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert data['success'] is False
-        assert 'Invalid JSON' in data['error']
+        assert data["success"] is False
+        assert "Invalid JSON" in data["error"]
 
     def test_validate_installment_missing_params(self):
         """Test with missing parameters."""
         request = self.factory.post(
-            '/installments/validate/',
-            data=json.dumps({
-                'bin': '554960',
-                'amount': '100.00',
-                # Missing 'installment'
-            }),
-            content_type='application/json',
+            "/installments/validate/",
+            data=json.dumps(
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    # Missing 'installment'
+                }
+            ),
+            content_type="application/json",
         )
 
         response = self.view.post(request)
 
         assert response.status_code == 400
         data = json.loads(response.content)
-        assert 'required' in data['error']
+        assert "required" in data["error"]
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_validate_installment_unexpected_error(self, mock_client_class):
         """Test handling unexpected error."""
         mock_client = MagicMock()
-        mock_client.validate_installment_option.side_effect = Exception('Unexpected')
+        mock_client.validate_installment_option.side_effect = Exception("Unexpected")
         mock_client_class.return_value = mock_client
 
         request = self.factory.post(
-            '/installments/validate/',
-            data=json.dumps({
-                'bin': '554960',
-                'amount': '100.00',
-                'installment': 3,
-            }),
-            content_type='application/json',
+            "/installments/validate/",
+            data=json.dumps(
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    "installment": 3,
+                }
+            ),
+            content_type="application/json",
         )
 
         response = self.view.post(request)
@@ -437,22 +489,25 @@ class TestGetInstallmentOptionsFunction(TestCase):
         """Set up test fixtures."""
         self.factory = RequestFactory()
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_function_view_delegates_to_class_view(self, mock_client_class):
         """Test that function view delegates to class view."""
         mock_options = [
-            InstallmentOption(1, Decimal('100'), Decimal('100'), Decimal('100')),
+            InstallmentOption(1, Decimal("100"), Decimal("100"), Decimal("100")),
         ]
-        mock_bank_info = BankInstallmentInfo('Akbank', 62, mock_options)
+        mock_bank_info = BankInstallmentInfo("Akbank", 62, mock_options)
 
         mock_client = MagicMock()
         mock_client.get_installment_info.return_value = [mock_bank_info]
         mock_client_class.return_value = mock_client
 
-        request = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
 
         response = get_installment_options(request)
 
@@ -476,74 +531,86 @@ try:
             self.factory = APIRequestFactory()
             self.viewset = InstallmentViewSet()
 
-        @patch('django_iyzico.installment_views.InstallmentClient')
+        @patch("django_iyzico.installment_views.InstallmentClient")
         def test_options_action(self, mock_client_class):
             """Test options action."""
             mock_options = [
-                InstallmentOption(1, Decimal('100'), Decimal('100'), Decimal('100')),
+                InstallmentOption(1, Decimal("100"), Decimal("100"), Decimal("100")),
             ]
-            mock_bank_info = BankInstallmentInfo('Akbank', 62, mock_options)
+            mock_bank_info = BankInstallmentInfo("Akbank", 62, mock_options)
 
             mock_client = MagicMock()
             mock_client.get_installment_info.return_value = [mock_bank_info]
             mock_client_class.return_value = mock_client
 
-            request = self.factory.get('/installments/options/', {
-                'bin': '554960',
-                'amount': '100.00',
-            })
+            request = self.factory.get(
+                "/installments/options/",
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                },
+            )
 
             response = self.viewset.options(request)
 
             assert response.status_code == 200
-            assert 'banks' in response.data
+            assert "banks" in response.data
 
-        @patch('django_iyzico.installment_views.InstallmentClient')
+        @patch("django_iyzico.installment_views.InstallmentClient")
         def test_best_action(self, mock_client_class):
             """Test best action."""
             mock_options = [
-                InstallmentOption(3, Decimal('100'), Decimal('100'), Decimal('33.33')),
+                InstallmentOption(3, Decimal("100"), Decimal("100"), Decimal("33.33")),
             ]
 
             mock_client = MagicMock()
             mock_client.get_best_installment_options.return_value = mock_options
             mock_client_class.return_value = mock_client
 
-            request = self.factory.get('/installments/best/', {
-                'bin': '554960',
-                'amount': '100.00',
-            })
+            request = self.factory.get(
+                "/installments/best/",
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                },
+            )
 
             response = self.viewset.best(request)
 
             assert response.status_code == 200
-            assert 'options' in response.data
+            assert "options" in response.data
 
-        @patch('django_iyzico.installment_views.InstallmentClient')
+        @patch("django_iyzico.installment_views.InstallmentClient")
         def test_validate_action(self, mock_client_class):
             """Test validate action."""
-            mock_option = InstallmentOption(3, Decimal('100'), Decimal('103'), Decimal('34.33'))
+            mock_option = InstallmentOption(3, Decimal("100"), Decimal("103"), Decimal("34.33"))
 
             mock_client = MagicMock()
             mock_client.validate_installment_option.return_value = mock_option
             mock_client_class.return_value = mock_client
 
-            request = self.factory.post('/installments/validate/', {
-                'bin': '554960',
-                'amount': '100.00',
-                'installment': 3,
-            })
+            request = self.factory.post(
+                "/installments/validate/",
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    "installment": 3,
+                },
+            )
 
             response = self.viewset.validate(request)
 
             assert response.status_code == 200
-            assert response.data['valid'] is True
+            assert response.data["valid"] is True
 
         def test_options_action_missing_params(self):
             """Test options action with missing params."""
-            request = self.factory.get('/installments/options/', {
-                'bin': '554960',
-            })
+            request = self.factory.get(
+                "/installments/options/",
+                {
+                    "bin": "554960",
+                },
+            )
 
             response = self.viewset.options(request)
 
@@ -551,9 +618,12 @@ try:
 
         def test_best_action_missing_params(self):
             """Test best action with missing params."""
-            request = self.factory.get('/installments/best/', {
-                'amount': '100.00',
-            })
+            request = self.factory.get(
+                "/installments/best/",
+                {
+                    "amount": "100.00",
+                },
+            )
 
             response = self.viewset.best(request)
 
@@ -561,32 +631,38 @@ try:
 
         def test_validate_action_missing_params(self):
             """Test validate action with missing params."""
-            request = self.factory.post('/installments/validate/', {
-                'bin': '554960',
-                'amount': '100.00',
-            })
+            request = self.factory.post(
+                "/installments/validate/",
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                },
+            )
 
             response = self.viewset.validate(request)
 
             assert response.status_code == 400
 
-        @patch('django_iyzico.installment_views.InstallmentClient')
+        @patch("django_iyzico.installment_views.InstallmentClient")
         def test_validate_action_invalid_installment(self, mock_client_class):
             """Test validate action with invalid installment."""
             mock_client = MagicMock()
             mock_client.validate_installment_option.return_value = None
             mock_client_class.return_value = mock_client
 
-            request = self.factory.post('/installments/validate/', {
-                'bin': '554960',
-                'amount': '100.00',
-                'installment': 9,
-            })
+            request = self.factory.post(
+                "/installments/validate/",
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    "installment": 9,
+                },
+            )
 
             response = self.viewset.validate(request)
 
             assert response.status_code == 200
-            assert response.data['valid'] is False
+            assert response.data["valid"] is False
 
 except ImportError:
     # DRF not installed, skip these tests
@@ -605,15 +681,15 @@ class TestInstallmentViewsIntegration(TestCase):
         """Set up test fixtures."""
         self.factory = RequestFactory()
 
-    @patch('django_iyzico.installment_views.InstallmentClient')
+    @patch("django_iyzico.installment_views.InstallmentClient")
     def test_full_flow_get_validate(self, mock_client_class):
         """Test full flow: get options -> validate selection."""
         # Mock responses
         mock_options = [
-            InstallmentOption(1, Decimal('100'), Decimal('100'), Decimal('100')),
-            InstallmentOption(3, Decimal('100'), Decimal('103'), Decimal('34.33'), Decimal('3.00')),
+            InstallmentOption(1, Decimal("100"), Decimal("100"), Decimal("100")),
+            InstallmentOption(3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3.00")),
         ]
-        mock_bank_info = BankInstallmentInfo('Akbank', 62, mock_options)
+        mock_bank_info = BankInstallmentInfo("Akbank", 62, mock_options)
 
         mock_client = MagicMock()
         mock_client.get_installment_info.return_value = [mock_bank_info]
@@ -622,28 +698,33 @@ class TestInstallmentViewsIntegration(TestCase):
 
         # Step 1: Get options
         options_view = InstallmentOptionsView()
-        request1 = self.factory.get('/installments/', {
-            'bin': '554960',
-            'amount': '100.00',
-        })
+        request1 = self.factory.get(
+            "/installments/",
+            {
+                "bin": "554960",
+                "amount": "100.00",
+            },
+        )
         response1 = options_view.get(request1)
 
         data1 = json.loads(response1.content)
-        assert data1['success'] is True
+        assert data1["success"] is True
 
         # Step 2: Validate selection
         validate_view = ValidateInstallmentView()
         request2 = self.factory.post(
-            '/installments/validate/',
-            data=json.dumps({
-                'bin': '554960',
-                'amount': '100.00',
-                'installment': 3,
-            }),
-            content_type='application/json',
+            "/installments/validate/",
+            data=json.dumps(
+                {
+                    "bin": "554960",
+                    "amount": "100.00",
+                    "installment": 3,
+                }
+            ),
+            content_type="application/json",
         )
         response2 = validate_view.post(request2)
 
         data2 = json.loads(response2.content)
-        assert data2['success'] is True
-        assert data2['valid'] is True
+        assert data2["success"] is True
+        assert data2["valid"] is True

@@ -50,10 +50,10 @@ def example_1_basic_retrieval():
     client = InstallmentClient()
 
     # Get the first 6 digits of the card (BIN)
-    card_bin = '554960'  # This would come from user's card input
+    card_bin = "554960"  # This would come from user's card input
 
     # Purchase amount
-    amount = Decimal('500.00')
+    amount = Decimal("500.00")
 
     # Retrieve installment options
     bank_options = client.get_installment_info(
@@ -90,21 +90,27 @@ class InstallmentOptionsAPIView(View):
     def get(self, request):
         """Handle GET request for installment options."""
         # Get parameters
-        bin_number = request.GET.get('bin')
-        amount_str = request.GET.get('amount')
+        bin_number = request.GET.get("bin")
+        amount_str = request.GET.get("amount")
 
         # Validate
         if not bin_number or not amount_str:
-            return JsonResponse({
-                'error': 'BIN and amount are required',
-            }, status=400)
+            return JsonResponse(
+                {
+                    "error": "BIN and amount are required",
+                },
+                status=400,
+            )
 
         try:
             amount = Decimal(amount_str)
         except (ValueError, TypeError):
-            return JsonResponse({
-                'error': 'Invalid amount',
-            }, status=400)
+            return JsonResponse(
+                {
+                    "error": "Invalid amount",
+                },
+                status=400,
+            )
 
         # Get installment options
         client = InstallmentClient()
@@ -112,35 +118,37 @@ class InstallmentOptionsAPIView(View):
 
         # Format for frontend
         response_data = {
-            'success': True,
-            'banks': [],
+            "success": True,
+            "banks": [],
         }
 
         for bank in bank_options:
             bank_data = {
-                'bank_name': bank.bank_name,
-                'bank_code': bank.bank_code,
-                'options': [],
+                "bank_name": bank.bank_name,
+                "bank_code": bank.bank_code,
+                "options": [],
             }
 
             for option in bank.installment_options:
-                bank_data['options'].append({
-                    'installments': option.installment_number,
-                    'monthly_payment': str(option.monthly_price),
-                    'total': str(option.total_price),
-                    'rate': str(option.installment_rate),
-                    'zero_interest': option.is_zero_interest,
-                    'display_text': format_installment_display(
-                        option.installment_number,
-                        option.monthly_price,
-                        'TRY',
-                        show_total=True,
-                        total_with_fees=option.total_price,
-                        base_amount=option.base_price,
-                    ),
-                })
+                bank_data["options"].append(
+                    {
+                        "installments": option.installment_number,
+                        "monthly_payment": str(option.monthly_price),
+                        "total": str(option.total_price),
+                        "rate": str(option.installment_rate),
+                        "zero_interest": option.is_zero_interest,
+                        "display_text": format_installment_display(
+                            option.installment_number,
+                            option.monthly_price,
+                            "TRY",
+                            show_total=True,
+                            total_with_fees=option.total_price,
+                            base_amount=option.base_price,
+                        ),
+                    }
+                )
 
-            response_data['banks'].append(bank_data)
+            response_data["banks"].append(bank_data)
 
         return JsonResponse(response_data)
 
@@ -159,8 +167,8 @@ def example_3_validate_selection():
     client = InstallmentClient()
 
     # User's selections
-    card_bin = '554960'
-    amount = Decimal('500.00')
+    card_bin = "554960"
+    amount = Decimal("500.00")
     selected_installment = 3
 
     # Validate the selection
@@ -198,8 +206,8 @@ def example_4_process_payment_with_installment():
     installment_client = InstallmentClient()
 
     # Payment details
-    card_bin = '554960'
-    amount = Decimal('500.00')
+    card_bin = "554960"
+    amount = Decimal("500.00")
     selected_installment = 3
 
     # Step 1: Validate installment option
@@ -210,12 +218,12 @@ def example_4_process_payment_with_installment():
     )
 
     if not installment_option:
-        raise ValueError('Selected installment option not available')
+        raise ValueError("Selected installment option not available")
 
     # Step 2: Prepare payment data
     payment_data = {
-        'amount': str(amount),
-        'installment': selected_installment,
+        "amount": str(amount),
+        "installment": selected_installment,
         # ... other payment fields (card, buyer, basket, etc.)
     }
 
@@ -225,12 +233,12 @@ def example_4_process_payment_with_installment():
     # Step 4: Store installment information with payment
     # After successful payment, store:
     payment_record = {
-        'amount': amount,
-        'installment': selected_installment,
-        'installment_rate': installment_option.installment_rate,
-        'monthly_installment_amount': installment_option.monthly_price,
-        'total_with_installment': installment_option.total_price,
-        'bin_number': card_bin,
+        "amount": amount,
+        "installment": selected_installment,
+        "installment_rate": installment_option.installment_rate,
+        "monthly_installment_amount": installment_option.monthly_price,
+        "total_with_installment": installment_option.total_price,
+        "bin_number": card_bin,
     }
 
     return payment_record
@@ -249,8 +257,8 @@ def example_5_get_best_options():
     """
     client = InstallmentClient()
 
-    card_bin = '554960'
-    amount = Decimal('1000.00')
+    card_bin = "554960"
+    amount = Decimal("1000.00")
 
     # Get top 5 best options
     best_options = client.get_best_installment_options(
@@ -413,36 +421,42 @@ class PaymentForm(forms.Form):
 
     card_number = forms.CharField(
         max_length=16,
-        widget=forms.TextInput(attrs={
-            'placeholder': '1234567812345678',
-            'class': 'form-control',
-        })
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "1234567812345678",
+                "class": "form-control",
+            }
+        ),
     )
 
     amount = forms.DecimalField(
         max_digits=10,
         decimal_places=2,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-        })
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+            }
+        ),
     )
 
     installment = forms.IntegerField(
         min_value=1,
         max_value=12,
         initial=1,
-        widget=forms.Select(attrs={
-            'class': 'form-control',
-        })
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
     )
 
     def clean(self):
         """Validate installment option."""
         cleaned_data = super().clean()
 
-        card_number = cleaned_data.get('card_number')
-        amount = cleaned_data.get('amount')
-        installment = cleaned_data.get('installment')
+        card_number = cleaned_data.get("card_number")
+        amount = cleaned_data.get("amount")
+        installment = cleaned_data.get("installment")
 
         if card_number and amount and installment:
             # Get BIN from card
@@ -458,7 +472,7 @@ class PaymentForm(forms.Form):
 
             if not option:
                 raise forms.ValidationError(
-                    f'{installment} installments not available for this card'
+                    f"{installment} installments not available for this card"
                 )
 
             # Store installment details for later use
@@ -470,7 +484,7 @@ class PaymentForm(forms.Form):
 class PaymentFormView(FormView):
     """Example view using PaymentForm."""
 
-    template_name = 'payment.html'
+    template_name = "payment.html"
     form_class = PaymentForm
 
     def form_valid(self, form):
@@ -625,23 +639,23 @@ def example_9_admin_customization():
 
         # Add installment-specific filters
         list_filter = IyzicoPaymentAdminMixin.list_filter + [
-            ('installment', admin.ChoicesFieldListFilter),
+            ("installment", admin.ChoicesFieldListFilter),
         ]
 
         # Custom list display
         list_display = IyzicoPaymentAdminMixin.list_display + [
-            'get_installment_savings',
+            "get_installment_savings",
         ]
 
         def get_installment_savings(self, obj):
             """Calculate savings for zero-interest installments."""
             if obj.has_installment() and obj.is_zero_interest_installment():
                 # Calculate expected fee if it wasn't zero interest
-                expected_fee = obj.amount * Decimal('0.03')  # Assume 3% average
+                expected_fee = obj.amount * Decimal("0.03")  # Assume 3% average
                 return f"Saved ~{expected_fee} {obj.currency}"
-            return '-'
+            return "-"
 
-        get_installment_savings.short_description = 'Savings'
+        get_installment_savings.short_description = "Savings"
 
     # admin.site.register(YourPaymentModel, CustomPaymentAdmin)
 
@@ -666,23 +680,20 @@ class InstallmentCampaign:
 
     def is_eligible(self, amount: Decimal, installment: int) -> bool:
         """Check if order is eligible for campaign."""
-        return (
-            amount >= self.min_amount and
-            installment <= self.max_installment
-        )
+        return amount >= self.min_amount and installment <= self.max_installment
 
     @classmethod
-    def get_active_campaigns(cls) -> List['InstallmentCampaign']:
+    def get_active_campaigns(cls) -> List["InstallmentCampaign"]:
         """Get currently active campaigns."""
         return [
             cls(
                 name="Spring Sale - 6 Installments 0%",
-                min_amount=Decimal('500.00'),
+                min_amount=Decimal("500.00"),
                 max_installment=6,
             ),
             cls(
                 name="Premium 12 Month 0%",
-                min_amount=Decimal('2000.00'),
+                min_amount=Decimal("2000.00"),
                 max_installment=12,
             ),
         ]
@@ -714,17 +725,17 @@ class CheckoutView(View):
         cart_total = self.get_cart_total(request)
 
         context = {
-            'cart_total': cart_total,
+            "cart_total": cart_total,
         }
 
-        return render(request, 'checkout.html', context)
+        return render(request, "checkout.html", context)
 
     def post(self, request):
         """Process checkout."""
         # Get form data
-        card_number = request.POST.get('card_number')
-        amount = Decimal(request.POST.get('amount'))
-        selected_installment = int(request.POST.get('installment', 1))
+        card_number = request.POST.get("card_number")
+        amount = Decimal(request.POST.get("amount"))
+        selected_installment = int(request.POST.get("installment", 1))
 
         # Get BIN
         card_bin = card_number[:6]
@@ -738,9 +749,12 @@ class CheckoutView(View):
         )
 
         if not installment_option:
-            return JsonResponse({
-                'error': 'Selected installment not available',
-            }, status=400)
+            return JsonResponse(
+                {
+                    "error": "Selected installment not available",
+                },
+                status=400,
+            )
 
         # Step 2: Calculate final total
         final_total = installment_option.total_price
@@ -754,36 +768,41 @@ class CheckoutView(View):
         )
 
         # Step 4: Create order
-        if payment_result['success']:
+        if payment_result["success"]:
             order = self.create_order(
                 payment_result=payment_result,
                 installment_option=installment_option,
             )
 
-            return JsonResponse({
-                'success': True,
-                'order_id': order.id,
-                'installment_info': {
-                    'count': selected_installment,
-                    'monthly_payment': str(installment_option.monthly_price),
-                    'total': str(final_total),
-                },
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "order_id": order.id,
+                    "installment_info": {
+                        "count": selected_installment,
+                        "monthly_payment": str(installment_option.monthly_price),
+                        "total": str(final_total),
+                    },
+                }
+            )
 
-        return JsonResponse({
-            'success': False,
-            'error': payment_result.get('error'),
-        }, status=400)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": payment_result.get("error"),
+            },
+            status=400,
+        )
 
     def get_cart_total(self, request):
         """Get cart total from session."""
         # Implementation depends on your cart system
-        return Decimal('500.00')
+        return Decimal("500.00")
 
     def process_payment(self, **kwargs):
         """Process payment through Iyzico."""
         # Implementation using IyzicoClient
-        return {'success': True}
+        return {"success": True}
 
     def create_order(self, payment_result, installment_option):
         """Create order record."""
@@ -861,7 +880,7 @@ def example_12_testing():
 # ============================================================================
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """Run examples."""
     print("django-iyzico Installment Payment Examples")
     print("=" * 60)

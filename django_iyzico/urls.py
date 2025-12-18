@@ -42,7 +42,7 @@ urlpatterns = [
 
 # SECURITY: Only include test webhook endpoint in DEBUG mode
 # This prevents the test endpoint from being exposed in production
-if getattr(settings, 'DEBUG', False):
+if getattr(settings, "DEBUG", False):
     urlpatterns.append(
         path(
             "webhook/test/",

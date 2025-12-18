@@ -11,6 +11,7 @@ try:
     HAS_DRF = True
 except ImportError:
     HAS_DRF = False
+
     # Create dummy base classes for graceful degradation
     class serializers:  # type: ignore
         class Serializer:
@@ -235,9 +236,7 @@ if HAS_DRF:
             max_amount = data.get("max_amount")
 
             if min_amount and max_amount and min_amount > max_amount:
-                raise serializers.ValidationError(
-                    "min_amount cannot be greater than max_amount"
-                )
+                raise serializers.ValidationError("min_amount cannot be greater than max_amount")
 
             # Validate date range
             created_after = data.get("created_after")
@@ -249,7 +248,6 @@ if HAS_DRF:
                 )
 
             return data
-
 
 else:
     # Provide helpful error messages if DRF is not installed

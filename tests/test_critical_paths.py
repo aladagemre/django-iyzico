@@ -42,20 +42,20 @@ class TestConcurrentBillingProtection(TestCase):
 
         # Create test user with required profile fields
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123',
-            first_name='Test',
-            last_name='User',
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+            first_name="Test",
+            last_name="User",
         )
 
         # Create subscription plan
         self.plan = SubscriptionPlan.objects.create(
-            name='Test Plan',
-            slug='test-plan',
-            price=Decimal('99.99'),
-            currency='TRY',
-            billing_interval='monthly',
+            name="Test Plan",
+            slug="test-plan",
+            price=Decimal("99.99"),
+            currency="TRY",
+            billing_interval="monthly",
         )
 
         # Create subscription
@@ -73,15 +73,15 @@ class TestConcurrentBillingProtection(TestCase):
         # Create payment method
         self.payment_method = PaymentMethod.objects.create(
             user=self.user,
-            card_token='test_token_123',
-            card_last_four='1234',
-            card_brand='VISA',
-            expiry_month='12',
-            expiry_year='2030',
+            card_token="test_token_123",
+            card_last_four="1234",
+            card_brand="VISA",
+            expiry_month="12",
+            expiry_year="2030",
             is_default=True,
         )
 
-    @patch('django_iyzico.subscription_manager.SubscriptionManager.client')
+    @patch("django_iyzico.subscription_manager.SubscriptionManager.client")
     def test_concurrent_billing_creates_only_one_payment(self, mock_client):
         """
         Test that concurrent billing tasks only create one payment.
@@ -94,8 +94,8 @@ class TestConcurrentBillingProtection(TestCase):
 
         # Mock successful payment response
         mock_response = MagicMock()
-        mock_response.status = 'success'
-        mock_response.payment_id = 'test_payment_id'
+        mock_response.status = "success"
+        mock_response.payment_id = "test_payment_id"
         mock_response.error_code = None
         mock_response.error_message = None
         mock_client.create_payment.return_value = mock_response
@@ -103,9 +103,7 @@ class TestConcurrentBillingProtection(TestCase):
         manager = SubscriptionManager(client=mock_client)
 
         # Track payment counts
-        payments_before = SubscriptionPayment.objects.filter(
-            subscription=self.subscription
-        ).count()
+        payments_before = SubscriptionPayment.objects.filter(subscription=self.subscription).count()
 
         results = []
         errors = []
@@ -114,10 +112,11 @@ class TestConcurrentBillingProtection(TestCase):
             try:
                 # Each thread gets a fresh subscription instance
                 from django_iyzico.subscription_models import Subscription
+
                 sub = Subscription.objects.get(pk=self.subscription.pk)
                 payment = manager.process_billing(
                     subscription=sub,
-                    payment_method={'cardToken': 'test_token'},
+                    payment_method={"cardToken": "test_token"},
                 )
                 results.append(payment)
             except Exception as e:
@@ -136,17 +135,15 @@ class TestConcurrentBillingProtection(TestCase):
             t.join()
 
         # Should have at most 1 new payment (the first successful one)
-        payments_after = SubscriptionPayment.objects.filter(
-            subscription=self.subscription
-        ).count()
+        payments_after = SubscriptionPayment.objects.filter(subscription=self.subscription).count()
 
         # Either all return the same payment (idempotent) or only one succeeds
-        successful_payments = [r for r in results if r.status == 'success']
+        successful_payments = [r for r in results if r.status == "success"]
 
         # At most one successful payment should be created
-        assert payments_after - payments_before <= 1, (
-            f"Expected at most 1 new payment, got {payments_after - payments_before}"
-        )
+        assert (
+            payments_after - payments_before <= 1
+        ), f"Expected at most 1 new payment, got {payments_after - payments_before}"
 
 
 class TestPaymentMethodSecurity(TestCase):
@@ -155,9 +152,9 @@ class TestPaymentMethodSecurity(TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123',
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
 
     def test_payment_method_stores_only_token(self):
@@ -166,11 +163,11 @@ class TestPaymentMethodSecurity(TestCase):
 
         payment_method = PaymentMethod.objects.create(
             user=self.user,
-            card_token='iyzico_secure_token_xyz123',
-            card_last_four='1234',
-            card_brand='VISA',
-            expiry_month='12',
-            expiry_year='2030',
+            card_token="iyzico_secure_token_xyz123",
+            card_last_four="1234",
+            card_brand="VISA",
+            expiry_month="12",
+            expiry_year="2030",
         )
 
         # Verify sensitive data is not in the model
@@ -182,9 +179,9 @@ class TestPaymentMethodSecurity(TestCase):
                 value = getattr(payment_method, field.name)
                 if isinstance(value, str):
                     # Should not contain anything that looks like a full card number
-                    assert len(value) < 16 or not value.isdigit(), (
-                        f"Field {field.name} may contain sensitive card data"
-                    )
+                    assert (
+                        len(value) < 16 or not value.isdigit()
+                    ), f"Field {field.name} may contain sensitive card data"
 
     def test_to_payment_dict_returns_only_tokens(self):
         """Verify to_payment_dict returns only token references."""
@@ -192,25 +189,25 @@ class TestPaymentMethodSecurity(TestCase):
 
         payment_method = PaymentMethod(
             user=self.user,
-            card_token='test_token',
-            card_user_key='test_user_key',
-            card_last_four='1234',
-            card_brand='VISA',
-            expiry_month='12',
-            expiry_year='2030',
+            card_token="test_token",
+            card_user_key="test_user_key",
+            card_last_four="1234",
+            card_brand="VISA",
+            expiry_month="12",
+            expiry_year="2030",
         )
 
         payment_dict = payment_method.to_payment_dict()
 
         # Should only contain token references
-        assert 'cardToken' in payment_dict
-        assert 'cardUserKey' in payment_dict
+        assert "cardToken" in payment_dict
+        assert "cardUserKey" in payment_dict
 
         # Should NOT contain actual card data
-        assert 'cardNumber' not in payment_dict
-        assert 'cvc' not in payment_dict
-        assert 'expireMonth' not in payment_dict
-        assert 'expireYear' not in payment_dict
+        assert "cardNumber" not in payment_dict
+        assert "cvc" not in payment_dict
+        assert "expireMonth" not in payment_dict
+        assert "expireYear" not in payment_dict
 
 
 class TestCardMasking(TestCase):
@@ -221,51 +218,54 @@ class TestCardMasking(TestCase):
         from django_iyzico.utils import mask_card_data
 
         payment_data = {
-            'card': {
-                'cardNumber': '5528790000000008',
-                'number': '5528790000000008',
-                'cvc': '123',
-                'cvv': '123',
-                'securityCode': '123',
-                'expireMonth': '12',
-                'expireYear': '2030',
-                'cardHolderName': 'Test User',
+            "card": {
+                "cardNumber": "5528790000000008",
+                "number": "5528790000000008",
+                "cvc": "123",
+                "cvv": "123",
+                "securityCode": "123",
+                "expireMonth": "12",
+                "expireYear": "2030",
+                "cardHolderName": "Test User",
             }
         }
 
         masked = mask_card_data(payment_data)
 
         # Should have last four digits
-        assert masked['card']['lastFourDigits'] == '0008'
+        assert masked["card"]["lastFourDigits"] == "0008"
 
         # Should NOT have sensitive data
-        assert 'cardNumber' not in masked['card'] or masked['card'].get('cardNumber') == '***REDACTED***'
-        assert 'number' not in masked['card'] or masked['card'].get('number') == '***REDACTED***'
-        assert 'cvc' not in masked['card'] or masked['card'].get('cvc') == '***REDACTED***'
+        assert (
+            "cardNumber" not in masked["card"]
+            or masked["card"].get("cardNumber") == "***REDACTED***"
+        )
+        assert "number" not in masked["card"] or masked["card"].get("number") == "***REDACTED***"
+        assert "cvc" not in masked["card"] or masked["card"].get("cvc") == "***REDACTED***"
 
         # Should keep cardholder name
-        assert masked['card']['cardHolderName'] == 'Test User'
+        assert masked["card"]["cardHolderName"] == "Test User"
 
     def test_mask_card_data_handles_nested_structures(self):
         """Test masking works on nested dictionaries."""
         from django_iyzico.utils import mask_card_data
 
         payment_data = {
-            'paymentCard': {
-                'cardNumber': '4111111111111111',
-                'cvv': '123',
+            "paymentCard": {
+                "cardNumber": "4111111111111111",
+                "cvv": "123",
             },
-            'nested': {
-                'deep': {
-                    'cardNumber': '4111111111111111',
+            "nested": {
+                "deep": {
+                    "cardNumber": "4111111111111111",
                 }
-            }
+            },
         }
 
         masked = mask_card_data(payment_data)
 
         # Check nested masking
-        assert masked['nested']['deep']['cardNumber'] == '***REDACTED***'
+        assert masked["nested"]["deep"]["cardNumber"] == "***REDACTED***"
 
 
 class TestBINValidation(TestCase):
@@ -276,24 +276,24 @@ class TestBINValidation(TestCase):
         from django_iyzico.installment_client import validate_bin_number
 
         # Valid Mastercard BIN
-        result = validate_bin_number('554960', allow_test_bins=False)
-        assert result == '554960'
+        result = validate_bin_number("554960", allow_test_bins=False)
+        assert result == "554960"
 
         # Valid Visa BIN
-        result = validate_bin_number('411111', allow_test_bins=False)
-        assert result == '411111'
+        result = validate_bin_number("411111", allow_test_bins=False)
+        assert result == "411111"
 
     def test_test_bins_rejected_in_production(self):
         """Test that known test BINs are rejected when not allowed."""
         from django_iyzico.installment_client import validate_bin_number
         from django_iyzico.exceptions import IyzicoValidationException
 
-        test_bins = ['000000', '111111', '123456']
+        test_bins = ["000000", "111111", "123456"]
 
         for bin_number in test_bins:
             with pytest.raises(IyzicoValidationException) as exc_info:
                 validate_bin_number(bin_number, allow_test_bins=False)
-            assert 'test BIN' in str(exc_info.value).lower()
+            assert "test BIN" in str(exc_info.value).lower()
 
     def test_invalid_mii_rejected(self):
         """Test that invalid MII (first digit) is rejected."""
@@ -301,19 +301,19 @@ class TestBINValidation(TestCase):
         from django_iyzico.exceptions import IyzicoValidationException
 
         # First digit must be 3-6 for payment cards
-        invalid_bins = ['112233', '223344', '778899', '990011']
+        invalid_bins = ["112233", "223344", "778899", "990011"]
 
         for bin_number in invalid_bins:
             with pytest.raises(IyzicoValidationException) as exc_info:
                 validate_bin_number(bin_number, allow_test_bins=True)
-            assert 'MII' in str(exc_info.value) or 'first digit' in str(exc_info.value).lower()
+            assert "MII" in str(exc_info.value) or "first digit" in str(exc_info.value).lower()
 
     def test_invalid_length_rejected(self):
         """Test that BINs with wrong length are rejected."""
         from django_iyzico.installment_client import validate_bin_number
         from django_iyzico.exceptions import IyzicoValidationException
 
-        invalid_lengths = ['12345', '1234567', '']
+        invalid_lengths = ["12345", "1234567", ""]
 
         for bin_number in invalid_lengths:
             with pytest.raises(IyzicoValidationException):
@@ -328,12 +328,12 @@ class TestAmountValidation(TestCase):
         from django_iyzico.utils import validate_amount
 
         # Normal TRY amount
-        result = validate_amount('100.00', 'TRY')
-        assert result == Decimal('100.00')
+        result = validate_amount("100.00", "TRY")
+        assert result == Decimal("100.00")
 
         # Normal USD amount
-        result = validate_amount('50.00', 'USD')
-        assert result == Decimal('50.00')
+        result = validate_amount("50.00", "USD")
+        assert result == Decimal("50.00")
 
     def test_amount_too_high_rejected(self):
         """Test that amounts exceeding limit are rejected."""
@@ -342,8 +342,8 @@ class TestAmountValidation(TestCase):
 
         # TRY limit is 1,000,000
         with pytest.raises(ValidationError) as exc_info:
-            validate_amount('2000000.00', 'TRY')
-        assert 'exceeds maximum' in str(exc_info.value).lower()
+            validate_amount("2000000.00", "TRY")
+        assert "exceeds maximum" in str(exc_info.value).lower()
 
     def test_amount_too_low_rejected(self):
         """Test that amounts below minimum are rejected."""
@@ -351,8 +351,8 @@ class TestAmountValidation(TestCase):
         from django_iyzico.exceptions import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            validate_amount('0.001', 'TRY')
-        assert 'at least' in str(exc_info.value).lower()
+            validate_amount("0.001", "TRY")
+        assert "at least" in str(exc_info.value).lower()
 
     def test_negative_amount_rejected(self):
         """Test that negative amounts are rejected."""
@@ -360,7 +360,7 @@ class TestAmountValidation(TestCase):
         from django_iyzico.exceptions import ValidationError
 
         with pytest.raises(ValidationError):
-            validate_amount('-10.00', 'TRY')
+            validate_amount("-10.00", "TRY")
 
 
 class TestRateLimiting(TestCase):
@@ -379,7 +379,7 @@ class TestRateLimiting(TestCase):
         client.rate_limit_requests = 5  # Low limit for testing
         client.rate_limit_window = 60
 
-        identifier = 'test_identifier'
+        identifier = "test_identifier"
 
         # First 5 requests should succeed
         for i in range(5):
@@ -405,13 +405,13 @@ class TestCacheKeyTracking(TestCase):
         client = InstallmentClient()
 
         # Invalid BIN formats should not cause issues
-        result = client.clear_cache(bin_number='invalid')
+        result = client.clear_cache(bin_number="invalid")
         assert result == 0
 
-        result = client.clear_cache(bin_number='12345')  # Too short
+        result = client.clear_cache(bin_number="12345")  # Too short
         assert result == 0
 
-        result = client.clear_cache(bin_number='abc123')  # Non-numeric
+        result = client.clear_cache(bin_number="abc123")  # Non-numeric
         assert result == 0
 
 
@@ -425,15 +425,11 @@ class TestWebhookSecurity(TestCase):
         from django_iyzico.views import webhook_view
 
         factory = RequestFactory()
-        request = factory.post(
-            '/webhook/',
-            data='{"test": true}',
-            content_type='application/json'
-        )
-        request.META['REMOTE_ADDR'] = '1.2.3.4'
+        request = factory.post("/webhook/", data='{"test": true}', content_type="application/json")
+        request.META["REMOTE_ADDR"] = "1.2.3.4"
 
         # Mock the settings
-        with patch('django_iyzico.views.iyzico_settings') as mock_settings:
+        with patch("django_iyzico.views.iyzico_settings") as mock_settings:
             mock_settings.webhook_allowed_ips = []
             mock_settings.webhook_secret = None
 
@@ -449,20 +445,16 @@ class TestWebhookSecurity(TestCase):
         import hmac
 
         payload = b'{"event": "payment.success", "paymentId": "12345"}'
-        secret = 'test_webhook_secret'
+        secret = "test_webhook_secret"
 
         # Generate valid signature
-        valid_signature = hmac.new(
-            secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        valid_signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
 
         # Valid signature should pass
         assert verify_webhook_signature(payload, valid_signature, secret) is True
 
         # Invalid signature should fail
-        assert verify_webhook_signature(payload, 'invalid_signature', secret) is False
+        assert verify_webhook_signature(payload, "invalid_signature", secret) is False
 
 
 class TestSubscriptionPaymentConstraints(TestCase):
@@ -477,17 +469,17 @@ class TestSubscriptionPaymentConstraints(TestCase):
         )
 
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123',
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
 
         self.plan = SubscriptionPlan.objects.create(
-            name='Test Plan',
-            slug='test-plan',
-            price=Decimal('99.99'),
-            currency='TRY',
-            billing_interval='monthly',
+            name="Test Plan",
+            slug="test-plan",
+            price=Decimal("99.99"),
+            currency="TRY",
+            billing_interval="monthly",
         )
 
         now = timezone.now()
@@ -513,13 +505,13 @@ class TestSubscriptionPaymentConstraints(TestCase):
         SubscriptionPayment.objects.create(
             subscription=self.subscription,
             user=self.user,
-            amount=Decimal('99.99'),
-            currency='TRY',
+            amount=Decimal("99.99"),
+            currency="TRY",
             period_start=period_start,
             period_end=period_end,
             attempt_number=1,
-            status='success',
-            conversation_id='conv_1',
+            status="success",
+            conversation_id="conv_1",
         )
 
         # Attempt to create duplicate - should fail
@@ -528,13 +520,13 @@ class TestSubscriptionPaymentConstraints(TestCase):
                 SubscriptionPayment.objects.create(
                     subscription=self.subscription,
                     user=self.user,
-                    amount=Decimal('99.99'),
-                    currency='TRY',
+                    amount=Decimal("99.99"),
+                    currency="TRY",
                     period_start=period_start,
                     period_end=period_end,
                     attempt_number=1,  # Same attempt number
-                    status='success',
-                    conversation_id='conv_2',
+                    status="success",
+                    conversation_id="conv_2",
                 )
 
 
@@ -544,9 +536,9 @@ class TestPaymentMethodExpiry(TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123',
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
         )
 
     def test_expired_card_detection(self):
@@ -558,9 +550,9 @@ class TestPaymentMethodExpiry(TestCase):
         # Expired card (last month)
         expired = PaymentMethod(
             user=self.user,
-            card_token='expired_token',
-            card_last_four='1234',
-            card_brand='VISA',
+            card_token="expired_token",
+            card_last_four="1234",
+            card_brand="VISA",
             expiry_month=str((now.month - 2) % 12 + 1).zfill(2),
             expiry_year=str(now.year if now.month > 2 else now.year - 1),
         )
@@ -569,10 +561,10 @@ class TestPaymentMethodExpiry(TestCase):
         # Valid card (next year)
         valid = PaymentMethod(
             user=self.user,
-            card_token='valid_token',
-            card_last_four='5678',
-            card_brand='VISA',
-            expiry_month='12',
+            card_token="valid_token",
+            card_last_four="5678",
+            card_brand="VISA",
+            expiry_month="12",
             expiry_year=str(now.year + 1),
         )
         assert valid.is_expired() is False
@@ -586,9 +578,9 @@ class TestPaymentMethodExpiry(TestCase):
         # Card expiring this month
         expiring_soon = PaymentMethod(
             user=self.user,
-            card_token='expiring_token',
-            card_last_four='1234',
-            card_brand='VISA',
+            card_token="expiring_token",
+            card_last_four="1234",
+            card_brand="VISA",
             expiry_month=str(now.month).zfill(2),
             expiry_year=str(now.year),
         )

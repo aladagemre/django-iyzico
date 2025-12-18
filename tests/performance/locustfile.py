@@ -52,13 +52,16 @@ class IyzicoPaymentUser(HttpUser):
     def login(self):
         """Authenticate user (modify based on your auth system)."""
         # Example login - adjust for your authentication
-        response = self.client.post("/api/auth/login/", json={
-            "username": f"test_user_{uuid.uuid4().hex[:8]}",
-            "password": "testpassword123",
-        })
+        response = self.client.post(
+            "/api/auth/login/",
+            json={
+                "username": f"test_user_{uuid.uuid4().hex[:8]}",
+                "password": "testpassword123",
+            },
+        )
 
         if response.status_code == 200:
-            self.auth_token = response.json().get('token')
+            self.auth_token = response.json().get("token")
 
     @task(10)
     def create_direct_payment(self):
@@ -68,38 +71,38 @@ class IyzicoPaymentUser(HttpUser):
         Weight: 10 (most common operation)
         """
         conversation_id = f"LOAD-{uuid.uuid4()}"
-        amount = Decimal(random.choice(['10.00', '50.00', '100.00', '250.00', '500.00']))
+        amount = Decimal(random.choice(["10.00", "50.00", "100.00", "250.00", "500.00"]))
 
         payment_data = {
-            'conversationId': conversation_id,
-            'price': str(amount),
-            'paidPrice': str(amount),
-            'currency': 'TRY',
-            'basketId': f"BASKET-{uuid.uuid4()}",
-            'installment': 1,
-            'paymentCard': {
-                'cardHolderName': 'Test User',
-                'cardNumber': '5528790000000008',
-                'expireMonth': '12',
-                'expireYear': '2030',
-                'cvc': '123',
+            "conversationId": conversation_id,
+            "price": str(amount),
+            "paidPrice": str(amount),
+            "currency": "TRY",
+            "basketId": f"BASKET-{uuid.uuid4()}",
+            "installment": 1,
+            "paymentCard": {
+                "cardHolderName": "Test User",
+                "cardNumber": "5528790000000008",
+                "expireMonth": "12",
+                "expireYear": "2030",
+                "cvc": "123",
             },
-            'buyer': {
-                'id': str(uuid.uuid4()),
-                'name': 'Test',
-                'surname': 'User',
-                'email': f'test_{uuid.uuid4().hex[:8]}@example.com',
-                'identityNumber': '11111111111',
-                'registrationAddress': 'Test Address',
-                'city': 'Istanbul',
-                'country': 'Turkey',
-                'zipCode': '34000',
+            "buyer": {
+                "id": str(uuid.uuid4()),
+                "name": "Test",
+                "surname": "User",
+                "email": f"test_{uuid.uuid4().hex[:8]}@example.com",
+                "identityNumber": "11111111111",
+                "registrationAddress": "Test Address",
+                "city": "Istanbul",
+                "country": "Turkey",
+                "zipCode": "34000",
             },
-            'billingAddress': {
-                'address': 'Test Address',
-                'city': 'Istanbul',
-                'country': 'Turkey',
-                'zipCode': '34000',
+            "billingAddress": {
+                "address": "Test Address",
+                "city": "Istanbul",
+                "country": "Turkey",
+                "zipCode": "34000",
             },
         }
 
@@ -111,9 +114,9 @@ class IyzicoPaymentUser(HttpUser):
         ) as response:
             if response.status_code == 200:
                 data = response.json()
-                if data.get('status') == 'success':
+                if data.get("status") == "success":
                     self.conversation_id = conversation_id
-                    self.payment_id = data.get('payment_id')
+                    self.payment_id = data.get("payment_id")
                     response.success()
                 else:
                     response.failure(f"Payment failed: {data.get('error_message')}")
@@ -128,39 +131,39 @@ class IyzicoPaymentUser(HttpUser):
         Weight: 5 (common operation)
         """
         conversation_id = f"3DS-{uuid.uuid4()}"
-        amount = Decimal(random.choice(['100.00', '250.00', '500.00']))
+        amount = Decimal(random.choice(["100.00", "250.00", "500.00"]))
 
         payment_data = {
-            'conversationId': conversation_id,
-            'price': str(amount),
-            'paidPrice': str(amount),
-            'currency': 'TRY',
-            'basketId': f"BASKET-{uuid.uuid4()}",
-            'installment': 1,
-            'callbackUrl': 'http://localhost:8000/payments/callback/',
-            'paymentCard': {
-                'cardHolderName': 'Test User',
-                'cardNumber': '5528790000000008',
-                'expireMonth': '12',
-                'expireYear': '2030',
-                'cvc': '123',
+            "conversationId": conversation_id,
+            "price": str(amount),
+            "paidPrice": str(amount),
+            "currency": "TRY",
+            "basketId": f"BASKET-{uuid.uuid4()}",
+            "installment": 1,
+            "callbackUrl": "http://localhost:8000/payments/callback/",
+            "paymentCard": {
+                "cardHolderName": "Test User",
+                "cardNumber": "5528790000000008",
+                "expireMonth": "12",
+                "expireYear": "2030",
+                "cvc": "123",
             },
-            'buyer': {
-                'id': str(uuid.uuid4()),
-                'name': 'Test',
-                'surname': 'User',
-                'email': f'test_{uuid.uuid4().hex[:8]}@example.com',
-                'identityNumber': '11111111111',
-                'registrationAddress': 'Test Address',
-                'city': 'Istanbul',
-                'country': 'Turkey',
-                'zipCode': '34000',
+            "buyer": {
+                "id": str(uuid.uuid4()),
+                "name": "Test",
+                "surname": "User",
+                "email": f"test_{uuid.uuid4().hex[:8]}@example.com",
+                "identityNumber": "11111111111",
+                "registrationAddress": "Test Address",
+                "city": "Istanbul",
+                "country": "Turkey",
+                "zipCode": "34000",
             },
-            'billingAddress': {
-                'address': 'Test Address',
-                'city': 'Istanbul',
-                'country': 'Turkey',
-                'zipCode': '34000',
+            "billingAddress": {
+                "address": "Test Address",
+                "city": "Istanbul",
+                "country": "Turkey",
+                "zipCode": "34000",
             },
         }
 
@@ -172,7 +175,7 @@ class IyzicoPaymentUser(HttpUser):
         ) as response:
             if response.status_code == 200:
                 data = response.json()
-                if data.get('status') == 'success':
+                if data.get("status") == "success":
                     response.success()
                 else:
                     response.failure(f"3DS initialization failed")
@@ -187,8 +190,8 @@ class IyzicoPaymentUser(HttpUser):
         Weight: 3 (frequent read operation)
         """
         params = {
-            'page': random.randint(1, 5),
-            'page_size': 20,
+            "page": random.randint(1, 5),
+            "page_size": 20,
         }
 
         with self.client.get(
@@ -237,8 +240,8 @@ class IyzicoPaymentUser(HttpUser):
             raise RescheduleTask()
 
         refund_data = {
-            'payment_id': self.payment_id,
-            'reason': 'Load test refund',
+            "payment_id": self.payment_id,
+            "reason": "Load test refund",
         }
 
         with self.client.post(
@@ -261,8 +264,8 @@ class IyzicoPaymentUser(HttpUser):
         Weight: 2 (dashboard/reporting queries)
         """
         params = {
-            'start_date': '2025-01-01',
-            'end_date': '2025-12-31',
+            "start_date": "2025-01-01",
+            "end_date": "2025-12-31",
         }
 
         with self.client.get(
@@ -284,12 +287,12 @@ class IyzicoPaymentUser(HttpUser):
         Weight: 1 (background process)
         """
         webhook_data = {
-            'paymentId': f"webhook-{uuid.uuid4()}",
-            'conversationId': f"WEBHOOK-{uuid.uuid4()}",
-            'status': 'success',
-            'price': '100.00',
-            'paidPrice': '100.00',
-            'currency': 'TRY',
+            "paymentId": f"webhook-{uuid.uuid4()}",
+            "conversationId": f"WEBHOOK-{uuid.uuid4()}",
+            "status": "success",
+            "price": "100.00",
+            "paidPrice": "100.00",
+            "currency": "TRY",
         }
 
         with self.client.post(
@@ -316,10 +319,13 @@ class AdminUser(HttpUser):
 
     def on_start(self):
         """Login as admin."""
-        self.client.post("/admin/login/", {
-            "username": "admin",
-            "password": "admin",
-        })
+        self.client.post(
+            "/admin/login/",
+            {
+                "username": "admin",
+                "password": "admin",
+            },
+        )
 
     @task(5)
     def view_payment_list(self):
@@ -384,14 +390,18 @@ def on_test_stop(environment, **kwargs):
     avg_response = environment.stats.total.avg_response_time
     failure_rate = (
         environment.stats.total.num_failures / environment.stats.total.num_requests * 100
-        if environment.stats.total.num_requests > 0 else 0
+        if environment.stats.total.num_requests > 0
+        else 0
     )
 
     print("\n📊 Performance Goals:")
-    print(f"Average Response Time: {avg_response:.2f}ms (Goal: < 2000ms) "
-          f"{'✅' if avg_response < 2000 else '❌'}")
-    print(f"Failure Rate: {failure_rate:.2f}% (Goal: < 1%) "
-          f"{'✅' if failure_rate < 1 else '❌'}")
+    print(
+        f"Average Response Time: {avg_response:.2f}ms (Goal: < 2000ms) "
+        f"{'✅' if avg_response < 2000 else '❌'}"
+    )
+    print(
+        f"Failure Rate: {failure_rate:.2f}% (Goal: < 1%) " f"{'✅' if failure_rate < 1 else '❌'}"
+    )
 
 
 # Custom shape for realistic load pattern

@@ -10,12 +10,9 @@ from django_iyzico.signals import (
     payment_failed,
     threeds_completed,
     threeds_failed,
-    webhook_received
+    webhook_received,
 )
-from django_iyzico.subscription_signals import (
-    subscription_activated,
-    subscription_payment_failed
-)
+from django_iyzico.subscription_signals import subscription_activated, subscription_payment_failed
 from .models import Order
 import logging
 
@@ -25,6 +22,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Payment Signals (Direct Payments)
 # ============================================================================
+
 
 @receiver(payment_completed)
 def on_payment_completed(sender, instance, **kwargs):
@@ -85,6 +83,7 @@ def on_subscription_payment_failed(sender, subscription, payment, **kwargs):
 # 3D Secure Signals
 # ============================================================================
 
+
 @receiver(threeds_completed)
 def on_threeds_completed(sender, payment_id, conversation_id, response, request, **kwargs):
     """
@@ -100,22 +99,24 @@ def on_threeds_completed(sender, payment_id, conversation_id, response, request,
         request: HTTP request from callback
     """
 
-    logger.info(f"3DS payment completed: payment_id={payment_id}, conversation_id={conversation_id}")
+    logger.info(
+        f"3DS payment completed: payment_id={payment_id}, conversation_id={conversation_id}"
+    )
 
     # Find order by conversation_id and update it
     try:
         order = Order.objects.get(conversation_id=conversation_id)
         order.payment_id = payment_id
-        order.payment_status = 'SUCCESS'
-        order.order_status = 'PAID'
+        order.payment_status = "SUCCESS"
+        order.order_status = "PAID"
 
         # Extract payment details from response
-        if 'price' in response:
-            order.paid_amount = response['price']
-        if 'cardAssociation' in response:
-            order.card_association = response['cardAssociation']
-        if 'cardFamily' in response:
-            order.card_family = response['cardFamily']
+        if "price" in response:
+            order.paid_amount = response["price"]
+        if "cardAssociation" in response:
+            order.card_association = response["cardAssociation"]
+        if "cardFamily" in response:
+            order.card_family = response["cardFamily"]
         # ... extract other fields as needed
 
         order.save()
@@ -154,7 +155,7 @@ def on_threeds_failed(sender, conversation_id, error_code, error_message, reques
     if conversation_id:
         try:
             order = Order.objects.get(conversation_id=conversation_id)
-            order.payment_status = 'FAILED'
+            order.payment_status = "FAILED"
             order.error_message = error_message
             order.error_code = error_code
             order.save()
@@ -171,6 +172,7 @@ def on_threeds_failed(sender, conversation_id, error_code, error_message, reques
 # ============================================================================
 # Webhook Signal
 # ============================================================================
+
 
 @receiver(webhook_received)
 def on_webhook_received(sender, event_type, payment_id, conversation_id, data, request, **kwargs):
@@ -202,21 +204,21 @@ def on_webhook_received(sender, event_type, payment_id, conversation_id, data, r
             order = Order.objects.get(conversation_id=conversation_id)
 
             # Different event types may require different handling
-            if event_type == 'PAYMENT_AUTH':
+            if event_type == "PAYMENT_AUTH":
                 # Payment authorized
-                order.payment_status = 'SUCCESS'
-                order.order_status = 'PAID'
+                order.payment_status = "SUCCESS"
+                order.order_status = "PAID"
                 logger.info(f"Order {order.id} confirmed via webhook")
 
-            elif event_type == 'REFUND_SUCCESS':
+            elif event_type == "REFUND_SUCCESS":
                 # Refund processed
-                order.payment_status = 'REFUNDED'
-                order.order_status = 'REFUNDED'
+                order.payment_status = "REFUNDED"
+                order.order_status = "REFUNDED"
                 logger.info(f"Order {order.id} refund confirmed via webhook")
 
-            elif event_type == 'CHARGEBACK':
+            elif event_type == "CHARGEBACK":
                 # Chargeback received
-                order.payment_status = 'CHARGEBACK'
+                order.payment_status = "CHARGEBACK"
                 order.notes += f"\nChargeback received: {data.get('reason', 'No reason')}"
                 logger.warning(f"Order {order.id} chargeback via webhook")
 

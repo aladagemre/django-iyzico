@@ -82,9 +82,7 @@ class Command(BaseCommand):
 
         # Get recent payments
         since_date = timezone.now() - timedelta(days=days)
-        payments = PaymentModel.objects.filter(
-            created_at__gte=since_date, payment_id__isnull=False
-        )
+        payments = PaymentModel.objects.filter(created_at__gte=since_date, payment_id__isnull=False)
 
         # Apply status filter
         if status_filter == "success":
@@ -92,9 +90,7 @@ class Command(BaseCommand):
         elif status_filter == "failed":
             payments = payments.filter(status=PaymentStatus.FAILED)
         elif status_filter == "pending":
-            payments = payments.filter(
-                status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING]
-            )
+            payments = payments.filter(status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING])
 
         # Exclude refunded payments (can't sync these)
         payments = payments.exclude(
@@ -109,22 +105,16 @@ class Command(BaseCommand):
 
         if total_count == 0:
             self.stdout.write(
-                self.style.WARNING(
-                    f"No payments found in the last {days} days matching criteria"
-                )
+                self.style.WARNING(f"No payments found in the last {days} days matching criteria")
             )
             return
 
         self.stdout.write(
-            self.style.SUCCESS(
-                f"\nSyncing {total_count} payments from last {days} days..."
-            )
+            self.style.SUCCESS(f"\nSyncing {total_count} payments from last {days} days...")
         )
 
         if dry_run:
-            self.stdout.write(
-                self.style.WARNING("DRY RUN MODE - No changes will be made\n")
-            )
+            self.stdout.write(self.style.WARNING("DRY RUN MODE - No changes will be made\n"))
 
         # Initialize client
         client = IyzicoClient()
@@ -149,9 +139,7 @@ class Command(BaseCommand):
                 # In a real implementation, you would use their payment inquiry API
                 # For now, we'll log what we would check
 
-                result = self._check_payment_status(
-                    client, payment, dry_run, options["verbosity"]
-                )
+                result = self._check_payment_status(client, payment, dry_run, options["verbosity"])
 
                 if result["updated"]:
                     updated_count += 1
@@ -167,9 +155,7 @@ class Command(BaseCommand):
 
             except Exception as e:
                 error_count += 1
-                self.stdout.write(
-                    self.style.ERROR(f"  Error syncing {payment.payment_id}: {e}")
-                )
+                self.stdout.write(self.style.ERROR(f"  Error syncing {payment.payment_id}: {e}"))
                 if options["verbosity"] >= 2:
                     logger.exception(f"Error details for {payment.payment_id}")
 
@@ -182,22 +168,16 @@ class Command(BaseCommand):
         self.stdout.write(f"Errors encountered: {error_count}")
 
         if discrepancies:
-            self.stdout.write(
-                self.style.WARNING(f"\nFound {len(discrepancies)} discrepancies:")
-            )
+            self.stdout.write(self.style.WARNING(f"\nFound {len(discrepancies)} discrepancies:"))
             for disc in discrepancies[:10]:  # Show first 10
                 self.stdout.write(f"  - {disc}")
             if len(discrepancies) > 10:
                 self.stdout.write(f"  ... and {len(discrepancies) - 10} more")
 
         if dry_run:
-            self.stdout.write(
-                self.style.WARNING("\nDRY RUN - No actual changes were made")
-            )
+            self.stdout.write(self.style.WARNING("\nDRY RUN - No actual changes were made"))
         else:
-            self.stdout.write(
-                self.style.SUCCESS(f"\nSync completed successfully")
-            )
+            self.stdout.write(self.style.SUCCESS(f"\nSync completed successfully"))
 
     def _import_model(self, model_path: str):
         """
@@ -210,33 +190,34 @@ class Command(BaseCommand):
             Model class
         """
         from importlib import import_module
-        
+
         try:
             # First try direct import (e.g., tests.models.TestPayment)
             if "." in model_path:
                 parts = model_path.rsplit(".", 1)
                 module_path, model_name = parts
-                
+
                 try:
                     module = import_module(module_path)
                     return getattr(module, model_name)
                 except (ImportError, AttributeError):
                     pass
-            
+
             # Try Django app registry
             parts = model_path.rsplit(".", 1)
             if len(parts) == 2:
                 app_label = parts[0].split(".")[-1]
                 model_name = parts[1]
-                
+
                 try:
                     return apps.get_model(app_label, model_name)
                 except LookupError:
                     pass
-            
+
             raise ValueError(f"Could not import model '{model_path}'")
         except Exception as e:
             raise ValueError(f"Failed to import model: {e}")
+
     def _check_payment_status(
         self,
         client: IyzicoClient,

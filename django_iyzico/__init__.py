@@ -61,6 +61,7 @@ def _get_models():
 
     return AbstractIyzicoPayment, PaymentStatus
 
+
 __all__ = [
     # Version
     "__version__",

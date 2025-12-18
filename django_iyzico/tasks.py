@@ -15,7 +15,7 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name='django_iyzico.process_due_subscriptions')
+@shared_task(name="django_iyzico.process_due_subscriptions")
 def process_due_subscriptions() -> Dict[str, int]:
     """
     Process subscriptions due for billing.
@@ -41,7 +41,7 @@ def process_due_subscriptions() -> Dict[str, int]:
     due_subscriptions = Subscription.objects.filter(
         status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
         next_billing_date__lte=now,
-    ).select_related('plan', 'user')
+    ).select_related("plan", "user")
 
     processed = 0
     successful = 0
@@ -78,7 +78,7 @@ def process_due_subscriptions() -> Dict[str, int]:
                 # Send success notification
                 send_payment_notification.delay(
                     subscription_id=subscription.id,
-                    event_type='payment_success',
+                    event_type="payment_success",
                 )
             else:
                 failed += 1
@@ -87,26 +87,24 @@ def process_due_subscriptions() -> Dict[str, int]:
                 # Send failure notification
                 send_payment_notification.delay(
                     subscription_id=subscription.id,
-                    event_type='payment_failed',
+                    event_type="payment_failed",
                 )
 
         except Exception as e:
             failed += 1
-            logger.exception(
-                f"Error processing subscription {subscription.id}: {e}"
-            )
+            logger.exception(f"Error processing subscription {subscription.id}: {e}")
 
     result = {
-        'processed': processed,
-        'successful': successful,
-        'failed': failed,
+        "processed": processed,
+        "successful": successful,
+        "failed": failed,
     }
 
     logger.info(f"Billing complete: {result}")
     return result
 
 
-@shared_task(name='django_iyzico.retry_failed_payments')
+@shared_task(name="django_iyzico.retry_failed_payments")
 def retry_failed_payments() -> Dict[str, int]:
     """
     Retry failed subscription payments.
@@ -121,8 +119,8 @@ def retry_failed_payments() -> Dict[str, int]:
     from .subscription_models import Subscription, SubscriptionStatus
 
     manager = SubscriptionManager()
-    max_retries = getattr(settings, 'IYZICO_SUBSCRIPTION_RETRY_ATTEMPTS', 3)
-    retry_delay_hours = getattr(settings, 'IYZICO_SUBSCRIPTION_RETRY_DELAY', 86400) / 3600
+    max_retries = getattr(settings, "IYZICO_SUBSCRIPTION_RETRY_ATTEMPTS", 3)
+    retry_delay_hours = getattr(settings, "IYZICO_SUBSCRIPTION_RETRY_DELAY", 86400) / 3600
 
     # Get subscriptions that need retry
     retry_cutoff = timezone.now() - timedelta(hours=retry_delay_hours)
@@ -131,15 +129,13 @@ def retry_failed_payments() -> Dict[str, int]:
         status=SubscriptionStatus.PAST_DUE,
         failed_payment_count__lt=max_retries,
         last_payment_attempt__lte=retry_cutoff,
-    ).select_related('plan', 'user')
+    ).select_related("plan", "user")
 
     retried = 0
     successful = 0
     failed = 0
 
-    logger.info(
-        f"Retrying {subscriptions_to_retry.count()} failed subscription payments"
-    )
+    logger.info(f"Retrying {subscriptions_to_retry.count()} failed subscription payments")
 
     for subscription in subscriptions_to_retry:
         try:
@@ -175,7 +171,7 @@ def retry_failed_payments() -> Dict[str, int]:
                 # Send success notification
                 send_payment_notification.delay(
                     subscription_id=subscription.id,
-                    event_type='payment_retry_success',
+                    event_type="payment_retry_success",
                 )
             else:
                 failed += 1
@@ -198,7 +194,7 @@ def retry_failed_payments() -> Dict[str, int]:
                     # Send expiration notification
                     send_payment_notification.delay(
                         subscription_id=subscription.id,
-                        event_type='subscription_expired',
+                        event_type="subscription_expired",
                     )
 
         except Exception as e:
@@ -206,16 +202,16 @@ def retry_failed_payments() -> Dict[str, int]:
             logger.exception(f"Error retrying subscription {subscription.id}: {e}")
 
     result = {
-        'retried': retried,
-        'successful': successful,
-        'failed': failed,
+        "retried": retried,
+        "successful": successful,
+        "failed": failed,
     }
 
     logger.info(f"Retry complete: {result}")
     return result
 
 
-@shared_task(name='django_iyzico.expire_cancelled_subscriptions')
+@shared_task(name="django_iyzico.expire_cancelled_subscriptions")
 def expire_cancelled_subscriptions() -> int:
     """
     Expire subscriptions marked for cancellation at period end.
@@ -250,6 +246,7 @@ def expire_cancelled_subscriptions() -> int:
 
         # Send signal
         from .signals import subscription_expired
+
         subscription_expired.send(
             sender=Subscription,
             subscription=subscription,
@@ -258,14 +255,14 @@ def expire_cancelled_subscriptions() -> int:
         # Send notification
         send_payment_notification.delay(
             subscription_id=subscription.id,
-            event_type='subscription_expired',
+            event_type="subscription_expired",
         )
 
     logger.info(f"Expired {expired_count} cancelled subscriptions")
     return expired_count
 
 
-@shared_task(name='django_iyzico.check_trial_expiration')
+@shared_task(name="django_iyzico.check_trial_expiration")
 def check_trial_expiration() -> Dict[str, int]:
     """
     Check for expiring trials and send notifications.
@@ -287,7 +284,7 @@ def check_trial_expiration() -> Dict[str, int]:
     expired_trials = Subscription.objects.filter(
         status=SubscriptionStatus.TRIALING,
         trial_end_date__lte=now,
-    ).select_related('plan', 'user')
+    ).select_related("plan", "user")
 
     expired_count = 0
 
@@ -310,8 +307,7 @@ def check_trial_expiration() -> Dict[str, int]:
                     expired_count += 1
                 else:
                     logger.warning(
-                        f"Trial ended for subscription {subscription.id}, "
-                        f"first payment failed"
+                        f"Trial ended for subscription {subscription.id}, " f"first payment failed"
                     )
             else:
                 # No payment method - mark as expired
@@ -320,14 +316,12 @@ def check_trial_expiration() -> Dict[str, int]:
                 subscription.save()
 
                 logger.warning(
-                    f"Trial ended for subscription {subscription.id}, "
-                    f"no payment method found"
+                    f"Trial ended for subscription {subscription.id}, " f"no payment method found"
                 )
 
         except Exception as e:
             logger.exception(
-                f"Error processing trial expiration for subscription "
-                f"{subscription.id}: {e}"
+                f"Error processing trial expiration for subscription " f"{subscription.id}: {e}"
             )
 
     # Find trials expiring soon (7 days)
@@ -342,20 +336,20 @@ def check_trial_expiration() -> Dict[str, int]:
     for subscription in expiring_soon:
         send_payment_notification.delay(
             subscription_id=subscription.id,
-            event_type='trial_ending_soon',
+            event_type="trial_ending_soon",
         )
         notified_count += 1
 
     result = {
-        'expired': expired_count,
-        'notified': notified_count,
+        "expired": expired_count,
+        "notified": notified_count,
     }
 
     logger.info(f"Trial expiration check complete: {result}")
     return result
 
 
-@shared_task(name='django_iyzico.charge_subscription', bind=True, max_retries=3)
+@shared_task(name="django_iyzico.charge_subscription", bind=True, max_retries=3)
 def charge_subscription(
     self,
     subscription_id: int,
@@ -378,9 +372,7 @@ def charge_subscription(
     from .subscription_models import Subscription
 
     try:
-        subscription = Subscription.objects.select_related('plan', 'user').get(
-            id=subscription_id
-        )
+        subscription = Subscription.objects.select_related("plan", "user").get(id=subscription_id)
     except Subscription.DoesNotExist:
         logger.error(f"Subscription {subscription_id} not found")
         return False
@@ -393,9 +385,7 @@ def charge_subscription(
             payment_method = _get_stored_payment_method(subscription)
 
         if not payment_method:
-            logger.error(
-                f"No payment method available for subscription {subscription_id}"
-            )
+            logger.error(f"No payment method available for subscription {subscription_id}")
             return False
 
         # Process payment
@@ -413,7 +403,7 @@ def charge_subscription(
         raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
 
 
-@shared_task(name='django_iyzico.send_payment_notification')
+@shared_task(name="django_iyzico.send_payment_notification")
 def send_payment_notification(
     subscription_id: int,
     event_type: str,
@@ -438,9 +428,7 @@ def send_payment_notification(
     from .subscription_models import Subscription
 
     try:
-        subscription = Subscription.objects.select_related('plan', 'user').get(
-            id=subscription_id
-        )
+        subscription = Subscription.objects.select_related("plan", "user").get(id=subscription_id)
     except Subscription.DoesNotExist:
         logger.error(f"Subscription {subscription_id} not found for notification")
         return False
@@ -450,53 +438,53 @@ def send_payment_notification(
 
     # Email templates
     templates = {
-        'payment_success': {
-            'subject': f'Payment Successful - {plan.name}',
-            'message': (
-                f'Hi {user.first_name},\n\n'
-                f'Your subscription payment of {plan.price} {plan.currency} '
-                f'has been processed successfully.\n\n'
+        "payment_success": {
+            "subject": f"Payment Successful - {plan.name}",
+            "message": (
+                f"Hi {user.first_name},\n\n"
+                f"Your subscription payment of {plan.price} {plan.currency} "
+                f"has been processed successfully.\n\n"
                 f'Next billing date: {subscription.next_billing_date.strftime("%Y-%m-%d")}\n\n'
-                f'Thank you for your continued support!'
+                f"Thank you for your continued support!"
             ),
         },
-        'payment_failed': {
-            'subject': f'Payment Failed - {plan.name}',
-            'message': (
-                f'Hi {user.first_name},\n\n'
-                f'We were unable to process your subscription payment of '
-                f'{plan.price} {plan.currency}.\n\n'
-                f'Please update your payment method to continue your subscription.\n\n'
-                f'If you have any questions, please contact support.'
+        "payment_failed": {
+            "subject": f"Payment Failed - {plan.name}",
+            "message": (
+                f"Hi {user.first_name},\n\n"
+                f"We were unable to process your subscription payment of "
+                f"{plan.price} {plan.currency}.\n\n"
+                f"Please update your payment method to continue your subscription.\n\n"
+                f"If you have any questions, please contact support."
             ),
         },
-        'payment_retry_success': {
-            'subject': f'Payment Retry Successful - {plan.name}',
-            'message': (
-                f'Hi {user.first_name},\n\n'
-                f'Your subscription payment has been processed successfully '
-                f'after a previous failure.\n\n'
-                f'Your subscription is now active.\n\n'
-                f'Thank you!'
+        "payment_retry_success": {
+            "subject": f"Payment Retry Successful - {plan.name}",
+            "message": (
+                f"Hi {user.first_name},\n\n"
+                f"Your subscription payment has been processed successfully "
+                f"after a previous failure.\n\n"
+                f"Your subscription is now active.\n\n"
+                f"Thank you!"
             ),
         },
-        'subscription_expired': {
-            'subject': f'Subscription Expired - {plan.name}',
-            'message': (
-                f'Hi {user.first_name},\n\n'
-                f'Your subscription to {plan.name} has expired.\n\n'
-                f'To reactivate, please visit our website and subscribe again.\n\n'
-                f'We hope to see you again soon!'
+        "subscription_expired": {
+            "subject": f"Subscription Expired - {plan.name}",
+            "message": (
+                f"Hi {user.first_name},\n\n"
+                f"Your subscription to {plan.name} has expired.\n\n"
+                f"To reactivate, please visit our website and subscribe again.\n\n"
+                f"We hope to see you again soon!"
             ),
         },
-        'trial_ending_soon': {
-            'subject': f'Trial Ending Soon - {plan.name}',
-            'message': (
-                f'Hi {user.first_name},\n\n'
-                f'Your trial period for {plan.name} will end in 7 days.\n\n'
-                f'Your first payment of {plan.price} {plan.currency} will be '
+        "trial_ending_soon": {
+            "subject": f"Trial Ending Soon - {plan.name}",
+            "message": (
+                f"Hi {user.first_name},\n\n"
+                f"Your trial period for {plan.name} will end in 7 days.\n\n"
+                f"Your first payment of {plan.price} {plan.currency} will be "
                 f'charged on {subscription.trial_end_date.strftime("%Y-%m-%d")}.\n\n'
-                f'If you wish to cancel, please do so before the trial ends.'
+                f"If you wish to cancel, please do so before the trial ends."
             ),
         },
     }
@@ -510,29 +498,27 @@ def send_payment_notification(
     try:
         # Send email
         send_mail(
-            subject=template['subject'],
-            message=template['message'],
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
+            subject=template["subject"],
+            message=template["message"],
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"),
             recipient_list=[user.email],
             fail_silently=False,
         )
 
         logger.info(
-            f"Sent {event_type} notification to {user.email} for "
-            f"subscription {subscription_id}"
+            f"Sent {event_type} notification to {user.email} for " f"subscription {subscription_id}"
         )
 
         return True
 
     except Exception as e:
         logger.exception(
-            f"Error sending {event_type} notification for "
-            f"subscription {subscription_id}: {e}"
+            f"Error sending {event_type} notification for " f"subscription {subscription_id}: {e}"
         )
         return False
 
 
-@shared_task(name='django_iyzico.check_expiring_payment_methods')
+@shared_task(name="django_iyzico.check_expiring_payment_methods")
 def check_expiring_payment_methods() -> Dict[str, int]:
     """
     Check for expiring payment methods and send notifications to users.
@@ -565,7 +551,7 @@ def check_expiring_payment_methods() -> Dict[str, int]:
     # Find and deactivate expired payment methods
     expired_methods = PaymentMethod.objects.filter(
         is_active=True,
-    ).select_related('user')
+    ).select_related("user")
 
     for payment_method in expired_methods:
         if payment_method.is_expired():
@@ -580,25 +566,25 @@ def check_expiring_payment_methods() -> Dict[str, int]:
 
             # Check if user has active subscriptions
             active_subscriptions = payment_method.user.iyzico_subscriptions.filter(
-                status__in=['active', 'trialing', 'past_due']
+                status__in=["active", "trialing", "past_due"]
             ).count()
 
             if active_subscriptions > 0:
                 # Send notification about expired card
                 try:
                     send_mail(
-                        subject='Payment Method Expired - Action Required',
+                        subject="Payment Method Expired - Action Required",
                         message=(
-                            f'Hi {payment_method.user.first_name or payment_method.user.username},\n\n'
-                            f'Your payment method ending in {payment_method.card_last_four} '
-                            f'has expired ({payment_method.expiry_month}/{payment_method.expiry_year}).\n\n'
-                            f'You have {active_subscriptions} active subscription(s) that require '
-                            f'a valid payment method.\n\n'
-                            f'Please log in to your account and update your payment method '
-                            f'to avoid service interruption.\n\n'
-                            f'Thank you!'
+                            f"Hi {payment_method.user.first_name or payment_method.user.username},\n\n"
+                            f"Your payment method ending in {payment_method.card_last_four} "
+                            f"has expired ({payment_method.expiry_month}/{payment_method.expiry_year}).\n\n"
+                            f"You have {active_subscriptions} active subscription(s) that require "
+                            f"a valid payment method.\n\n"
+                            f"Please log in to your account and update your payment method "
+                            f"to avoid service interruption.\n\n"
+                            f"Thank you!"
                         ),
-                        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
+                        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"),
                         recipient_list=[payment_method.user.email],
                         fail_silently=False,
                     )
@@ -620,7 +606,7 @@ def check_expiring_payment_methods() -> Dict[str, int]:
     expiring_methods = PaymentMethod.objects.filter(
         is_active=True,
         is_default=True,  # Only notify for default payment methods
-    ).select_related('user')
+    ).select_related("user")
 
     for payment_method in expiring_methods:
         # Check if expires soon but not yet expired
@@ -629,7 +615,7 @@ def check_expiring_payment_methods() -> Dict[str, int]:
 
             # Check if user has active subscriptions
             active_subscriptions = payment_method.user.iyzico_subscriptions.filter(
-                status__in=['active', 'trialing']
+                status__in=["active", "trialing"]
             ).count()
 
             if active_subscriptions > 0:
@@ -648,20 +634,22 @@ def check_expiring_payment_methods() -> Dict[str, int]:
                     # Only send notification if expiring within 30 days
                     if 0 < days_until_expiry <= 30:
                         send_mail(
-                            subject='Payment Method Expiring Soon',
+                            subject="Payment Method Expiring Soon",
                             message=(
-                                f'Hi {payment_method.user.first_name or payment_method.user.username},\n\n'
-                                f'Your payment method ({payment_method.get_card_brand_display()} '
-                                f'ending in {payment_method.card_last_four}) will expire in '
-                                f'{days_until_expiry} day(s) ({payment_method.expiry_month}/'
-                                f'{payment_method.expiry_year}).\n\n'
-                                f'You have {active_subscriptions} active subscription(s) '
-                                f'that use this payment method.\n\n'
-                                f'To avoid any interruption to your service, please log in '
-                                f'to your account and update your payment method before it expires.\n\n'
-                                f'Thank you!'
+                                f"Hi {payment_method.user.first_name or payment_method.user.username},\n\n"
+                                f"Your payment method ({payment_method.get_card_brand_display()} "
+                                f"ending in {payment_method.card_last_four}) will expire in "
+                                f"{days_until_expiry} day(s) ({payment_method.expiry_month}/"
+                                f"{payment_method.expiry_year}).\n\n"
+                                f"You have {active_subscriptions} active subscription(s) "
+                                f"that use this payment method.\n\n"
+                                f"To avoid any interruption to your service, please log in "
+                                f"to your account and update your payment method before it expires.\n\n"
+                                f"Thank you!"
                             ),
-                            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
+                            from_email=getattr(
+                                settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"
+                            ),
                             recipient_list=[payment_method.user.email],
                             fail_silently=False,
                         )
@@ -681,9 +669,9 @@ def check_expiring_payment_methods() -> Dict[str, int]:
                     )
 
     result = {
-        'expired': expired_count,
-        'expiring': expiring_count,
-        'notified': notified_count,
+        "expired": expired_count,
+        "expiring": expiring_count,
+        "notified": notified_count,
     }
 
     logger.info(f"Payment method expiry check complete: {result}")
@@ -714,7 +702,7 @@ def _get_stored_payment_method(subscription) -> Optional[Dict]:
 
         # First, try to get payment method from subscription metadata (if stored)
         # This allows subscription-specific payment methods
-        stored_method_id = subscription.metadata.get('payment_method_id')
+        stored_method_id = subscription.metadata.get("payment_method_id")
         if stored_method_id:
             try:
                 payment_method = PaymentMethod.objects.get(
@@ -764,7 +752,5 @@ def _get_stored_payment_method(subscription) -> Optional[Dict]:
         return payment_data
 
     except Exception as e:
-        logger.exception(
-            f"Error retrieving payment method for subscription {subscription.id}: {e}"
-        )
+        logger.exception(f"Error retrieving payment method for subscription {subscription.id}: {e}")
         return None

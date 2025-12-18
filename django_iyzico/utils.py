@@ -20,31 +20,74 @@ logger = logging.getLogger(__name__)
 
 
 # Comprehensive list of sensitive field names to mask/remove
-SENSITIVE_CARD_FIELDS = frozenset({
-    # Card numbers
-    'cardNumber', 'card_number', 'number', 'cardNo', 'card_no',
-    'pan', 'PAN', 'primaryAccountNumber',
-    # Security codes
-    'cvc', 'cvv', 'cvv2', 'cvc2', 'securityCode', 'security_code',
-    'cid', 'CID', 'cardSecurityCode', 'card_security_code',
-    # Expiry dates
-    'expireMonth', 'expire_month', 'expiryMonth', 'expiry_month',
-    'expireYear', 'expire_year', 'expiryYear', 'expiry_year',
-    'expiry', 'expirationDate', 'expiration_date', 'exp',
-    # PIN and passwords
-    'pin', 'PIN', 'password', 'passwd',
-    # Tokens (might need to keep for recurring payments, handle carefully)
-    # 'cardToken' - NOT in this list as it may be needed
-})
+SENSITIVE_CARD_FIELDS = frozenset(
+    {
+        # Card numbers
+        "cardNumber",
+        "card_number",
+        "number",
+        "cardNo",
+        "card_no",
+        "pan",
+        "PAN",
+        "primaryAccountNumber",
+        # Security codes
+        "cvc",
+        "cvv",
+        "cvv2",
+        "cvc2",
+        "securityCode",
+        "security_code",
+        "cid",
+        "CID",
+        "cardSecurityCode",
+        "card_security_code",
+        # Expiry dates
+        "expireMonth",
+        "expire_month",
+        "expiryMonth",
+        "expiry_month",
+        "expireYear",
+        "expire_year",
+        "expiryYear",
+        "expiry_year",
+        "expiry",
+        "expirationDate",
+        "expiration_date",
+        "exp",
+        # PIN and passwords
+        "pin",
+        "PIN",
+        "password",
+        "passwd",
+        # Tokens (might need to keep for recurring payments, handle carefully)
+        # 'cardToken' - NOT in this list as it may be needed
+    }
+)
 
 # Fields that are safe to keep (non-sensitive)
-SAFE_CARD_FIELDS = frozenset({
-    'cardType', 'card_type', 'cardFamily', 'card_family',
-    'cardAssociation', 'card_association', 'cardBankName', 'card_bank_name',
-    'cardBankCode', 'card_bank_code', 'cardHolderName', 'holderName',
-    'lastFourDigits', 'last_four', 'binNumber', 'bin_number',
-    'cardToken', 'cardUserKey',  # Tokens are safe (references, not actual data)
-})
+SAFE_CARD_FIELDS = frozenset(
+    {
+        "cardType",
+        "card_type",
+        "cardFamily",
+        "card_family",
+        "cardAssociation",
+        "card_association",
+        "cardBankName",
+        "card_bank_name",
+        "cardBankCode",
+        "card_bank_code",
+        "cardHolderName",
+        "holderName",
+        "lastFourDigits",
+        "last_four",
+        "binNumber",
+        "bin_number",
+        "cardToken",
+        "cardUserKey",  # Tokens are safe (references, not actual data)
+    }
+)
 
 
 def mask_card_data(payment_details: Dict[str, Any]) -> Dict[str, Any]:
@@ -103,7 +146,7 @@ def mask_card_data(payment_details: Dict[str, Any]) -> Dict[str, Any]:
 
         # Extract card number from various possible field names
         card_number = ""
-        for field in ['cardNumber', 'card_number', 'number', 'pan']:
+        for field in ["cardNumber", "card_number", "number", "pan"]:
             if field in card:
                 card_number = str(card[field])
                 break
@@ -132,11 +175,11 @@ def mask_card_data(payment_details: Dict[str, Any]) -> Dict[str, Any]:
 
         # Get cardholder name from various possible fields
         holder_name = (
-            card.get("cardHolderName") or
-            card.get("holderName") or
-            card.get("card_holder_name") or
-            card.get("name") or
-            ""
+            card.get("cardHolderName")
+            or card.get("holderName")
+            or card.get("card_holder_name")
+            or card.get("name")
+            or ""
         )
         if holder_name:
             safe_card["cardHolderName"] = holder_name
@@ -145,9 +188,7 @@ def mask_card_data(payment_details: Dict[str, Any]) -> Dict[str, Any]:
 
         # Log masking activity
         if last_four:
-            logger.debug(
-                f"Masked card data - BIN: {bin_number[:2]}****, Last 4: {last_four}"
-            )
+            logger.debug(f"Masked card data - BIN: {bin_number[:2]}****, Last 4: {last_four}")
 
     # Handle 'paymentCard' key (Iyzico SDK format)
     if "paymentCard" in safe_data:
@@ -188,26 +229,26 @@ def _mask_dict_recursive(data: Any) -> Any:
 # Currency-specific validation limits
 # These prevent potentially fraudulent or erroneous transactions
 CURRENCY_LIMITS: Dict[str, Dict[str, Decimal]] = {
-    'TRY': {
-        'min': Decimal('0.01'),
-        'max': Decimal('1000000.00'),  # 1 million TRY
+    "TRY": {
+        "min": Decimal("0.01"),
+        "max": Decimal("1000000.00"),  # 1 million TRY
     },
-    'USD': {
-        'min': Decimal('0.01'),
-        'max': Decimal('50000.00'),  # 50k USD
+    "USD": {
+        "min": Decimal("0.01"),
+        "max": Decimal("50000.00"),  # 50k USD
     },
-    'EUR': {
-        'min': Decimal('0.01'),
-        'max': Decimal('50000.00'),  # 50k EUR
+    "EUR": {
+        "min": Decimal("0.01"),
+        "max": Decimal("50000.00"),  # 50k EUR
     },
-    'GBP': {
-        'min': Decimal('0.01'),
-        'max': Decimal('50000.00'),  # 50k GBP
+    "GBP": {
+        "min": Decimal("0.01"),
+        "max": Decimal("50000.00"),  # 50k GBP
     },
     # Default limits for other currencies
-    'DEFAULT': {
-        'min': Decimal('0.01'),
-        'max': Decimal('100000.00'),  # 100k default
+    "DEFAULT": {
+        "min": Decimal("0.01"),
+        "max": Decimal("100000.00"),  # 100k default
     },
 }
 
@@ -272,9 +313,9 @@ def validate_amount(
 
     # Get currency-specific limits
     currency_upper = currency.upper()
-    limits = CURRENCY_LIMITS.get(currency_upper, CURRENCY_LIMITS['DEFAULT'])
-    min_amount = limits['min']
-    max_amount = custom_max if custom_max is not None else limits['max']
+    limits = CURRENCY_LIMITS.get(currency_upper, CURRENCY_LIMITS["DEFAULT"])
+    min_amount = limits["min"]
+    max_amount = custom_max if custom_max is not None else limits["max"]
 
     # Check minimum amount
     if decimal_amount < min_amount:
@@ -292,7 +333,7 @@ def validate_amount(
         )
 
     # Log validation for high-value transactions (for monitoring)
-    warning_threshold = max_amount * Decimal('0.5')  # 50% of max
+    warning_threshold = max_amount * Decimal("0.5")  # 50% of max
     if decimal_amount > warning_threshold:
         logger.info(
             f"High-value amount validation: {decimal_amount} {currency_upper} "
@@ -319,7 +360,7 @@ def get_currency_limits(currency: str) -> Dict[str, Decimal]:
         Decimal('50000.00')
     """
     currency_upper = currency.upper()
-    return CURRENCY_LIMITS.get(currency_upper, CURRENCY_LIMITS['DEFAULT']).copy()
+    return CURRENCY_LIMITS.get(currency_upper, CURRENCY_LIMITS["DEFAULT"]).copy()
 
 
 def validate_payment_data(payment_data: Dict[str, Any]) -> None:
@@ -356,15 +397,11 @@ def validate_payment_data(payment_data: Dict[str, Any]) -> None:
     # Validate amounts
     try:
         price = validate_amount(payment_data["price"], payment_data["currency"])
-        paid_price = validate_amount(
-            payment_data["paidPrice"], payment_data["currency"]
-        )
+        paid_price = validate_amount(payment_data["paidPrice"], payment_data["currency"])
 
         # paidPrice should typically be >= price (can be higher with installments)
         if paid_price < price:
-            logger.warning(
-                f"Paid price ({paid_price}) is less than price ({price})"
-            )
+            logger.warning(f"Paid price ({paid_price}) is less than price ({price})")
 
     except ValidationError:
         raise
@@ -520,8 +557,16 @@ def format_buyer_data(buyer: Dict[str, Any]) -> Dict[str, Any]:
     Raises:
         ValidationError: If required buyer fields are missing
     """
-    required_fields = ["id", "name", "surname", "email", "identityNumber",
-                       "registrationAddress", "city", "country"]
+    required_fields = [
+        "id",
+        "name",
+        "surname",
+        "email",
+        "identityNumber",
+        "registrationAddress",
+        "city",
+        "country",
+    ]
 
     missing_fields = [f for f in required_fields if not buyer.get(f)]
     if missing_fields:
@@ -625,8 +670,7 @@ def sanitize_log_data(data: Dict[str, Any]) -> Dict[str, Any]:
             sanitized[key] = sanitize_log_data(value)
         elif isinstance(value, list):
             sanitized[key] = [
-                sanitize_log_data(item) if isinstance(item, dict) else item
-                for item in value
+                sanitize_log_data(item) if isinstance(item, dict) else item for item in value
             ]
 
     return sanitized
@@ -904,10 +948,10 @@ def get_client_ip(request, trust_xff: Optional[bool] = None) -> str:
         trust_xff = iyzico_settings.trust_x_forwarded_for
 
     if trust_xff:
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
             # Take the first IP in the chain (client IP)
-            ip = x_forwarded_for.split(',')[0].strip()
+            ip = x_forwarded_for.split(",")[0].strip()
             return ip
 
-    return request.META.get('REMOTE_ADDR', '')
+    return request.META.get("REMOTE_ADDR", "")

@@ -16,20 +16,20 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id',
-            'name',
-            'description',
-            'price',
-            'currency',
-            'formatted_price',
-            'image',
-            'stock',
-            'in_stock',
-            'is_active',
-            'created_at',
-            'updated_at'
+            "id",
+            "name",
+            "description",
+            "price",
+            "currency",
+            "formatted_price",
+            "image",
+            "stock",
+            "in_stock",
+            "is_active",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ["created_at", "updated_at"]
 
     def get_formatted_price(self, obj):
         """Get formatted price with currency symbol."""
@@ -43,19 +43,19 @@ class ProductSerializer(serializers.ModelSerializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     """Serializer for OrderItem model."""
 
-    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
     formatted_total = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
         fields = [
-            'id',
-            'product',
-            'product_name',
-            'quantity',
-            'price',
-            'currency',
-            'formatted_total'
+            "id",
+            "product",
+            "product_name",
+            "quantity",
+            "price",
+            "currency",
+            "formatted_total",
         ]
 
     def get_formatted_total(self, obj):
@@ -67,16 +67,12 @@ class OrderSerializer(serializers.ModelSerializer):
     """Serializer for Order model."""
 
     items = OrderItemSerializer(many=True, read_only=True)
-    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_email = serializers.EmailField(source="user.email", read_only=True)
     formatted_amount = serializers.SerializerMethodField()
     payment_status_display = serializers.CharField(
-        source='get_payment_status_display',
-        read_only=True
+        source="get_payment_status_display", read_only=True
     )
-    order_status_display = serializers.CharField(
-        source='get_order_status_display',
-        read_only=True
-    )
+    order_status_display = serializers.CharField(source="get_order_status_display", read_only=True)
     total = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
 
@@ -84,52 +80,47 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             # Order fields
-            'id',
-            'order_number',
-            'user',
-            'user_email',
-            'order_status',
-            'order_status_display',
-            'items',
-            'total',
-            'item_count',
-
+            "id",
+            "order_number",
+            "user",
+            "user_email",
+            "order_status",
+            "order_status_display",
+            "items",
+            "total",
+            "item_count",
             # Payment fields
-            'payment_id',
-            'conversation_id',
-            'payment_status',
-            'payment_status_display',
-            'amount',
-            'paid_amount',
-            'currency',
-            'formatted_amount',
-
+            "payment_id",
+            "conversation_id",
+            "payment_status",
+            "payment_status_display",
+            "amount",
+            "paid_amount",
+            "currency",
+            "formatted_amount",
             # Installment fields
-            'installment_count',
-            'installment_rate',
-
+            "installment_count",
+            "installment_rate",
             # Buyer fields
-            'buyer_name',
-            'buyer_surname',
-            'buyer_email',
-            'buyer_phone',
-
+            "buyer_name",
+            "buyer_surname",
+            "buyer_email",
+            "buyer_phone",
             # Shipping fields
-            'shipping_address',
-            'shipping_city',
-            'shipping_country',
-
+            "shipping_address",
+            "shipping_city",
+            "shipping_country",
             # Timestamps
-            'created_at',
-            'updated_at',
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = [
-            'order_number',
-            'payment_id',
-            'payment_status',
-            'paid_amount',
-            'created_at',
-            'updated_at'
+            "order_number",
+            "payment_id",
+            "payment_status",
+            "paid_amount",
+            "created_at",
+            "updated_at",
         ]
 
     def get_formatted_amount(self, obj):
@@ -151,10 +142,7 @@ class PaymentRequestSerializer(serializers.Serializer):
     # Order details
     product_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1, default=1)
-    currency = serializers.ChoiceField(
-        choices=['TRY', 'USD', 'EUR', 'GBP'],
-        default='TRY'
-    )
+    currency = serializers.ChoiceField(choices=["TRY", "USD", "EUR", "GBP"], default="TRY")
     installment = serializers.IntegerField(min_value=1, default=1)
 
     # Card details
@@ -167,20 +155,20 @@ class PaymentRequestSerializer(serializers.Serializer):
     # Shipping details
     shipping_address = serializers.CharField(max_length=500)
     shipping_city = serializers.CharField(max_length=100)
-    shipping_country = serializers.CharField(max_length=100, default='Turkey')
+    shipping_country = serializers.CharField(max_length=100, default="Turkey")
 
     def validate_card_number(self, value):
         """Validate card number format."""
         # Remove spaces and dashes
-        card_number = value.replace(' ', '').replace('-', '')
+        card_number = value.replace(" ", "").replace("-", "")
 
         # Check length
         if not 13 <= len(card_number) <= 19:
-            raise serializers.ValidationError('Invalid card number length')
+            raise serializers.ValidationError("Invalid card number length")
 
         # Check if all digits
         if not card_number.isdigit():
-            raise serializers.ValidationError('Card number must contain only digits')
+            raise serializers.ValidationError("Card number must contain only digits")
 
         return card_number
 
@@ -189,9 +177,9 @@ class PaymentRequestSerializer(serializers.Serializer):
         try:
             month = int(value)
             if not 1 <= month <= 12:
-                raise serializers.ValidationError('Month must be between 1 and 12')
+                raise serializers.ValidationError("Month must be between 1 and 12")
         except ValueError:
-            raise serializers.ValidationError('Invalid month format')
+            raise serializers.ValidationError("Invalid month format")
         return value
 
     def validate_expire_year(self, value):
@@ -199,9 +187,9 @@ class PaymentRequestSerializer(serializers.Serializer):
         try:
             year = int(value)
             if year < 2025:
-                raise serializers.ValidationError('Card has expired')
+                raise serializers.ValidationError("Card has expired")
         except ValueError:
-            raise serializers.ValidationError('Invalid year format')
+            raise serializers.ValidationError("Invalid year format")
         return value
 
 
@@ -212,16 +200,12 @@ class RefundRequestSerializer(serializers.Serializer):
         max_digits=10,
         decimal_places=2,
         required=False,
-        help_text="Amount to refund (leave empty for full refund)"
+        help_text="Amount to refund (leave empty for full refund)",
     )
-    reason = serializers.CharField(
-        max_length=500,
-        required=False,
-        help_text="Reason for refund"
-    )
+    reason = serializers.CharField(max_length=500, required=False, help_text="Reason for refund")
 
     def validate_amount(self, value):
         """Validate refund amount."""
         if value is not None and value <= 0:
-            raise serializers.ValidationError('Amount must be positive')
+            raise serializers.ValidationError("Amount must be positive")
         return value

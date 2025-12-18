@@ -13,6 +13,7 @@ try:
     HAS_DRF = True
 except ImportError:
     HAS_DRF = False
+
     # Create dummy classes
     class viewsets:  # type: ignore
         class ReadOnlyModelViewSet:
@@ -198,13 +199,11 @@ if HAS_DRF:
                 total=Count("id"),
                 successful=Count("id", filter=Q(status=PaymentStatus.SUCCESS)),
                 failed=Count("id", filter=Q(status=PaymentStatus.FAILED)),
-                pending=Count("id", filter=Q(
-                    status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING]
-                )),
-                total_amount=Sum("amount"),
-                successful_amount=Sum(
-                    "amount", filter=Q(status=PaymentStatus.SUCCESS)
+                pending=Count(
+                    "id", filter=Q(status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING])
                 ),
+                total_amount=Sum("amount"),
+                successful_amount=Sum("amount", filter=Q(status=PaymentStatus.SUCCESS)),
             )
 
             # Convert Decimals to strings for JSON serialization
@@ -286,7 +285,7 @@ if HAS_DRF:
                 )
 
             # Get client IP for audit trail (uses centralized function that respects settings)
-            ip_address = get_client_ip(request) or '127.0.0.1'
+            ip_address = get_client_ip(request) or "127.0.0.1"
 
             # Process refund
             try:
@@ -328,7 +327,6 @@ if HAS_DRF:
                     {"success": False, "error": f"Refund processing failed: {str(e)}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-
 
 else:
     # Provide helpful error messages if DRF is not installed

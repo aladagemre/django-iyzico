@@ -240,9 +240,7 @@ class TestUtilitiesIntegration:
         basket_id = generate_basket_id("ORDER")
         total_amount = Decimal("5000")
         installments = 12
-        monthly_amount = calculate_installment_amount(
-            total_amount, installments, Decimal("2.5")
-        )
+        monthly_amount = calculate_installment_amount(total_amount, installments, Decimal("2.5"))
 
         # Should work together without errors
         assert basket_id.startswith("ORDER")
@@ -263,4 +261,6 @@ class TestUtilitiesIntegration:
 
         # Total paid should equal monthly * installments (approximately)
         calculated_total = monthly * installments
-        assert abs(calculated_total - total_paid) < Decimal("0.10")  # Allow small rounding difference
+        assert abs(calculated_total - total_paid) < Decimal(
+            "0.10"
+        )  # Allow small rounding difference

@@ -57,7 +57,7 @@ def create_json_post_request(request_factory, url, data):
         content_type="application/json",
     )
     # Explicitly set the body attribute for views that read request.body
-    request._body = json_data.encode('utf-8')
+    request._body = json_data.encode("utf-8")
     return request
 
 
@@ -89,9 +89,7 @@ class TestThreeDSCallbackView:
         assert "success" in response.url or "payment" in response.url
 
         # Verify client was called
-        mock_client_instance.complete_3ds_payment.assert_called_once_with(
-            "payment-token-123"
-        )
+        mock_client_instance.complete_3ds_payment.assert_called_once_with("payment-token-123")
 
     def test_successful_3ds_callback_post(self, request_factory, mock_iyzico_client):
         """Test successful 3DS callback via POST."""
@@ -238,8 +236,7 @@ class TestThreeDSCallbackView:
         # Mock IyzicoClient to raise ThreeDSecureError
         mock_client_instance = Mock()
         mock_client_instance.complete_3ds_payment.side_effect = ThreeDSecureError(
-            "3DS authentication failed",
-            error_code="3DS_ERROR"
+            "3DS authentication failed", error_code="3DS_ERROR"
         )
         mock_iyzico_client.return_value = mock_client_instance
 

@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 class CardBrand(models.TextChoices):
     """Card brand/association choices."""
 
-    VISA = 'VISA', _('Visa')
-    MASTERCARD = 'MASTER_CARD', _('Mastercard')
-    AMEX = 'AMERICAN_EXPRESS', _('American Express')
-    TROY = 'TROY', _('Troy')
-    OTHER = 'OTHER', _('Other')
+    VISA = "VISA", _("Visa")
+    MASTERCARD = "MASTER_CARD", _("Mastercard")
+    AMEX = "AMERICAN_EXPRESS", _("American Express")
+    TROY = "TROY", _("Troy")
+    OTHER = "OTHER", _("Other")
 
 
 class PaymentMethod(models.Model):
@@ -63,7 +63,7 @@ class PaymentMethod(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='iyzico_payment_methods',
+        related_name="iyzico_payment_methods",
         help_text=_("User who owns this payment method"),
     )
 
@@ -176,21 +176,21 @@ class PaymentMethod(models.Model):
     )
 
     class Meta:
-        db_table = 'iyzico_payment_methods'
-        ordering = ['-is_default', '-created_at']
+        db_table = "iyzico_payment_methods"
+        ordering = ["-is_default", "-created_at"]
         indexes = [
-            models.Index(fields=['user', 'is_active', 'is_default']),
-            models.Index(fields=['card_token']),
-            models.Index(fields=['expiry_year', 'expiry_month']),
+            models.Index(fields=["user", "is_active", "is_default"]),
+            models.Index(fields=["card_token"]),
+            models.Index(fields=["expiry_year", "expiry_month"]),
         ]
-        verbose_name = _('Payment Method')
-        verbose_name_plural = _('Payment Methods')
+        verbose_name = _("Payment Method")
+        verbose_name_plural = _("Payment Methods")
         constraints = [
             # Ensure only one default per user
             models.UniqueConstraint(
-                fields=['user'],
+                fields=["user"],
                 condition=models.Q(is_default=True, is_active=True),
-                name='unique_default_payment_method_per_user',
+                name="unique_default_payment_method_per_user",
             ),
         ]
 
@@ -206,7 +206,9 @@ class PaymentMethod(models.Model):
                 user=self.user,
                 is_default=True,
                 is_active=True,
-            ).exclude(pk=self.pk).update(is_default=False)
+            ).exclude(
+                pk=self.pk
+            ).update(is_default=False)
         super().save(*args, **kwargs)
 
     def clean(self) -> None:
@@ -218,13 +220,17 @@ class PaymentMethod(models.Model):
             try:
                 month = int(self.expiry_month)
                 if not (1 <= month <= 12):
-                    raise ValidationError({
-                        'expiry_month': _('Must be between 01 and 12'),
-                    })
+                    raise ValidationError(
+                        {
+                            "expiry_month": _("Must be between 01 and 12"),
+                        }
+                    )
             except ValueError:
-                raise ValidationError({
-                    'expiry_month': _('Must be a valid month number'),
-                })
+                raise ValidationError(
+                    {
+                        "expiry_month": _("Must be a valid month number"),
+                    }
+                )
 
         # Validate expiry year
         if self.expiry_year:
@@ -232,27 +238,35 @@ class PaymentMethod(models.Model):
                 year = int(self.expiry_year)
                 current_year = timezone.now().year
                 if not (current_year <= year <= current_year + 20):
-                    raise ValidationError({
-                        'expiry_year': _('Must be a valid future year'),
-                    })
+                    raise ValidationError(
+                        {
+                            "expiry_year": _("Must be a valid future year"),
+                        }
+                    )
             except ValueError:
-                raise ValidationError({
-                    'expiry_year': _('Must be a valid year'),
-                })
+                raise ValidationError(
+                    {
+                        "expiry_year": _("Must be a valid year"),
+                    }
+                )
 
         # Validate last four digits
         if self.card_last_four:
             if len(self.card_last_four) != 4 or not self.card_last_four.isdigit():
-                raise ValidationError({
-                    'card_last_four': _('Must be exactly 4 digits'),
-                })
+                raise ValidationError(
+                    {
+                        "card_last_four": _("Must be exactly 4 digits"),
+                    }
+                )
 
         # Validate BIN if provided
         if self.bin_number:
             if len(self.bin_number) != 6 or not self.bin_number.isdigit():
-                raise ValidationError({
-                    'bin_number': _('Must be exactly 6 digits'),
-                })
+                raise ValidationError(
+                    {
+                        "bin_number": _("Must be exactly 6 digits"),
+                    }
+                )
 
     def is_expired(self) -> bool:
         """
@@ -289,12 +303,14 @@ class PaymentMethod(models.Model):
         """
         try:
             from datetime import timedelta
+
             now = timezone.now()
             year = int(self.expiry_year)
             month = int(self.expiry_month)
 
             # Card expires at the end of the expiry month
             import calendar
+
             last_day = calendar.monthrange(year, month)[1]
             expiry_date = timezone.datetime(year, month, last_day, 23, 59, 59, tzinfo=now.tzinfo)
 
@@ -330,23 +346,23 @@ class PaymentMethod(models.Model):
             >>> response = client.create_payment_with_token(payment_dict)
         """
         return {
-            'cardToken': self.card_token,
-            'cardUserKey': self.card_user_key,
+            "cardToken": self.card_token,
+            "cardUserKey": self.card_user_key,
         }
 
     def mark_as_used(self) -> None:
         """Update last_used_at timestamp."""
         self.last_used_at = timezone.now()
-        self.save(update_fields=['last_used_at', 'updated_at'])
+        self.save(update_fields=["last_used_at", "updated_at"])
 
     def deactivate(self) -> None:
         """Deactivate this payment method."""
         self.is_active = False
         self.is_default = False
-        self.save(update_fields=['is_active', 'is_default', 'updated_at'])
+        self.save(update_fields=["is_active", "is_default", "updated_at"])
 
     @classmethod
-    def get_default_for_user(cls, user) -> Optional['PaymentMethod']:
+    def get_default_for_user(cls, user) -> Optional["PaymentMethod"]:
         """
         Get the default active payment method for a user.
 
@@ -376,17 +392,17 @@ class PaymentMethod(models.Model):
         return cls.objects.filter(
             user=user,
             is_active=True,
-        ).order_by('-is_default', '-created_at')
+        ).order_by("-is_default", "-created_at")
 
 
 class BillingInterval(models.TextChoices):
     """Billing interval choices for subscription plans."""
 
-    DAILY = 'daily', _('Daily')
-    WEEKLY = 'weekly', _('Weekly')
-    MONTHLY = 'monthly', _('Monthly')
-    QUARTERLY = 'quarterly', _('Quarterly')
-    YEARLY = 'yearly', _('Yearly')
+    DAILY = "daily", _("Daily")
+    WEEKLY = "weekly", _("Weekly")
+    MONTHLY = "monthly", _("Monthly")
+    QUARTERLY = "quarterly", _("Quarterly")
+    YEARLY = "yearly", _("Yearly")
 
 
 class SubscriptionPlan(models.Model):
@@ -427,12 +443,12 @@ class SubscriptionPlan(models.Model):
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))],
+        validators=[MinValueValidator(Decimal("0.01"))],
         help_text=_("Price per billing interval"),
     )
     currency = models.CharField(
         max_length=3,
-        default='TRY',
+        default="TRY",
         help_text=_("ISO 4217 currency code"),
     )
     billing_interval = models.CharField(
@@ -483,14 +499,14 @@ class SubscriptionPlan(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'iyzico_subscription_plans'
-        ordering = ['sort_order', 'price']
+        db_table = "iyzico_subscription_plans"
+        ordering = ["sort_order", "price"]
         indexes = [
-            models.Index(fields=['is_active', 'billing_interval']),
-            models.Index(fields=['slug']),
+            models.Index(fields=["is_active", "billing_interval"]),
+            models.Index(fields=["slug"]),
         ]
-        verbose_name = _('Subscription Plan')
-        verbose_name_plural = _('Subscription Plans')
+        verbose_name = _("Subscription Plan")
+        verbose_name_plural = _("Subscription Plans")
 
     def __str__(self) -> str:
         return f"{self.name} ({self.price} {self.currency}/{self.get_billing_interval_display()})"
@@ -501,21 +517,27 @@ class SubscriptionPlan(models.Model):
 
         # Validate billing interval count
         if self.billing_interval_count < 1:
-            raise ValidationError({
-                'billing_interval_count': _('Must be at least 1'),
-            })
+            raise ValidationError(
+                {
+                    "billing_interval_count": _("Must be at least 1"),
+                }
+            )
 
         # Validate trial period
         if self.trial_period_days < 0:
-            raise ValidationError({
-                'trial_period_days': _('Cannot be negative'),
-            })
+            raise ValidationError(
+                {
+                    "trial_period_days": _("Cannot be negative"),
+                }
+            )
 
         # Validate max subscribers
         if self.max_subscribers is not None and self.max_subscribers < 0:
-            raise ValidationError({
-                'max_subscribers': _('Cannot be negative'),
-            })
+            raise ValidationError(
+                {
+                    "max_subscribers": _("Cannot be negative"),
+                }
+            )
 
     def get_total_trial_days(self) -> int:
         """Get total trial period in days."""
@@ -551,7 +573,7 @@ class SubscriptionPlan(models.Model):
             return True
 
         current_count = self.subscriptions.filter(
-            status__in=['active', 'trialing', 'past_due'],
+            status__in=["active", "trialing", "past_due"],
         ).count()
 
         return current_count < self.max_subscribers
@@ -560,13 +582,13 @@ class SubscriptionPlan(models.Model):
 class SubscriptionStatus(models.TextChoices):
     """Status choices for subscriptions."""
 
-    PENDING = 'pending', _('Pending')  # Created but not yet paid
-    TRIALING = 'trialing', _('Trialing')  # In trial period
-    ACTIVE = 'active', _('Active')  # Active and paid
-    PAST_DUE = 'past_due', _('Past Due')  # Payment failed
-    PAUSED = 'paused', _('Paused')  # Temporarily suspended
-    CANCELLED = 'cancelled', _('Cancelled')  # Cancelled but not expired
-    EXPIRED = 'expired', _('Expired')  # Ended
+    PENDING = "pending", _("Pending")  # Created but not yet paid
+    TRIALING = "trialing", _("Trialing")  # In trial period
+    ACTIVE = "active", _("Active")  # Active and paid
+    PAST_DUE = "past_due", _("Past Due")  # Payment failed
+    PAUSED = "paused", _("Paused")  # Temporarily suspended
+    CANCELLED = "cancelled", _("Cancelled")  # Cancelled but not expired
+    EXPIRED = "expired", _("Expired")  # Ended
 
 
 class Subscription(models.Model):
@@ -591,13 +613,13 @@ class Subscription(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='iyzico_subscriptions',
+        related_name="iyzico_subscriptions",
         help_text=_("Subscriber user"),
     )
     plan = models.ForeignKey(
         SubscriptionPlan,
         on_delete=models.PROTECT,
-        related_name='subscriptions',
+        related_name="subscriptions",
         help_text=_("Subscription plan"),
     )
 
@@ -679,20 +701,20 @@ class Subscription(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'iyzico_subscriptions'
-        ordering = ['-created_at']
+        db_table = "iyzico_subscriptions"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['user', 'status']),
-            models.Index(fields=['status', 'next_billing_date']),
-            models.Index(fields=['plan', 'status']),
-            models.Index(fields=['cancel_at_period_end', 'current_period_end']),
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["status", "next_billing_date"]),
+            models.Index(fields=["plan", "status"]),
+            models.Index(fields=["cancel_at_period_end", "current_period_end"]),
         ]
-        verbose_name = _('Subscription')
-        verbose_name_plural = _('Subscriptions')
+        verbose_name = _("Subscription")
+        verbose_name_plural = _("Subscriptions")
         constraints = [
             models.CheckConstraint(
-                check=models.Q(current_period_end__gte=models.F('current_period_start')),
-                name='period_end_after_start',
+                check=models.Q(current_period_end__gte=models.F("current_period_start")),
+                name="period_end_after_start",
             ),
         ]
 
@@ -705,15 +727,19 @@ class Subscription(models.Model):
 
         # Validate period dates
         if self.current_period_end <= self.current_period_start:
-            raise ValidationError({
-                'current_period_end': _('Must be after current_period_start'),
-            })
+            raise ValidationError(
+                {
+                    "current_period_end": _("Must be after current_period_start"),
+                }
+            )
 
         # Validate trial dates
         if self.trial_end_date and self.trial_end_date < self.start_date:
-            raise ValidationError({
-                'trial_end_date': _('Must be after start_date'),
-            })
+            raise ValidationError(
+                {
+                    "trial_end_date": _("Must be after start_date"),
+                }
+            )
 
     def is_active(self) -> bool:
         """Check if subscription is active."""
@@ -771,14 +797,16 @@ class Subscription(models.Model):
             Total of all successful payments.
         """
         return self.payments.filter(
-            status='success',
+            status="success",
         ).aggregate(
-            total=models.Sum('amount'),
-        )['total'] or Decimal('0.00')
+            total=models.Sum("amount"),
+        )[
+            "total"
+        ] or Decimal("0.00")
 
     def get_successful_payment_count(self) -> int:
         """Get count of successful payments."""
-        return self.payments.filter(status='success').count()
+        return self.payments.filter(status="success").count()
 
     def should_retry_payment(self, max_retries: int = 3) -> bool:
         """
@@ -791,8 +819,7 @@ class Subscription(models.Model):
             True if payment should be retried.
         """
         return (
-            self.status == SubscriptionStatus.PAST_DUE
-            and self.failed_payment_count < max_retries
+            self.status == SubscriptionStatus.PAST_DUE and self.failed_payment_count < max_retries
         )
 
 
@@ -817,7 +844,7 @@ class SubscriptionPayment(AbstractIyzicoPayment):
     subscription = models.ForeignKey(
         Subscription,
         on_delete=models.CASCADE,
-        related_name='payments',
+        related_name="payments",
         help_text=_("Associated subscription"),
     )
 
@@ -825,7 +852,7 @@ class SubscriptionPayment(AbstractIyzicoPayment):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='iyzico_subscription_payments',
+        related_name="iyzico_subscription_payments",
         help_text=_("User who made the payment"),
     )
 
@@ -869,21 +896,21 @@ class SubscriptionPayment(AbstractIyzicoPayment):
     )
 
     class Meta:
-        db_table = 'iyzico_subscription_payments'
-        ordering = ['-created_at']
+        db_table = "iyzico_subscription_payments"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['subscription', 'status']),
-            models.Index(fields=['period_start', 'period_end']),
-            models.Index(fields=['attempt_number', 'is_retry']),
+            models.Index(fields=["subscription", "status"]),
+            models.Index(fields=["period_start", "period_end"]),
+            models.Index(fields=["attempt_number", "is_retry"]),
         ]
-        verbose_name = _('Subscription Payment')
-        verbose_name_plural = _('Subscription Payments')
+        verbose_name = _("Subscription Payment")
+        verbose_name_plural = _("Subscription Payments")
         constraints = [
             # Prevent double billing for the same subscription period
             # This ensures only one successful payment per billing period attempt
             models.UniqueConstraint(
-                fields=['subscription', 'period_start', 'period_end', 'attempt_number'],
-                name='unique_subscription_payment_period',
+                fields=["subscription", "period_start", "period_end", "attempt_number"],
+                name="unique_subscription_payment_period",
             ),
         ]
 
@@ -897,21 +924,27 @@ class SubscriptionPayment(AbstractIyzicoPayment):
 
         # Validate period dates
         if self.period_end <= self.period_start:
-            raise ValidationError({
-                'period_end': _('Must be after period_start'),
-            })
+            raise ValidationError(
+                {
+                    "period_end": _("Must be after period_start"),
+                }
+            )
 
         # Validate attempt number
         if self.attempt_number < 1:
-            raise ValidationError({
-                'attempt_number': _('Must be at least 1'),
-            })
+            raise ValidationError(
+                {
+                    "attempt_number": _("Must be at least 1"),
+                }
+            )
 
         # If retry, attempt number should be > 1
         if self.is_retry and self.attempt_number == 1:
-            raise ValidationError({
-                'is_retry': _('Retry payments must have attempt_number > 1'),
-            })
+            raise ValidationError(
+                {
+                    "is_retry": _("Retry payments must have attempt_number > 1"),
+                }
+            )
 
     def get_effective_amount(self) -> Decimal:
         """
@@ -926,11 +959,11 @@ class SubscriptionPayment(AbstractIyzicoPayment):
 
     def is_successful(self) -> bool:
         """Check if payment was successful."""
-        return self.status == 'success'
+        return self.status == "success"
 
     def is_failed(self) -> bool:
         """Check if payment failed."""
-        return self.status == 'failure'
+        return self.status == "failure"
 
     def get_period_duration_days(self) -> int:
         """

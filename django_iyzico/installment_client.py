@@ -20,18 +20,31 @@ logger = logging.getLogger(__name__)
 
 
 # Known invalid/test BIN prefixes that should be rejected in production
-INVALID_TEST_BINS: Set[str] = frozenset({
-    '000000', '111111', '222222', '333333', '444444',
-    '555555', '666666', '777777', '888888', '999999',
-    '123456', '654321', '012345', '543210',
-})
+INVALID_TEST_BINS: Set[str] = frozenset(
+    {
+        "000000",
+        "111111",
+        "222222",
+        "333333",
+        "444444",
+        "555555",
+        "666666",
+        "777777",
+        "888888",
+        "999999",
+        "123456",
+        "654321",
+        "012345",
+        "543210",
+    }
+)
 
 # Valid Major Industry Identifier (MII) first digits for payment cards
 # 3 = Travel/Entertainment (Amex, Diners)
 # 4 = Visa
 # 5 = Mastercard
 # 6 = Discover, China UnionPay
-VALID_MII_DIGITS: Set[str] = frozenset({'3', '4', '5', '6'})
+VALID_MII_DIGITS: Set[str] = frozenset({"3", "4", "5", "6"})
 
 
 def validate_bin_number(bin_number: str, allow_test_bins: bool = False) -> str:
@@ -112,7 +125,7 @@ def validate_bin_number(bin_number: str, allow_test_bins: bool = False) -> str:
         )
 
     # Check for simple sequential patterns
-    if bin_number in ('345678', '456789', '234567'):
+    if bin_number in ("345678", "456789", "234567"):
         raise IyzicoValidationException(
             "Invalid BIN: sequential digit pattern detected",
             error_code="BIN_SEQUENTIAL_PATTERN",
@@ -134,16 +147,17 @@ class InstallmentOption:
         monthly_price: Price per month
         installment_rate: Fee rate as percentage
     """
+
     installment_number: int
     base_price: Decimal
     total_price: Decimal
     monthly_price: Decimal
-    installment_rate: Decimal = Decimal('0.00')
+    installment_rate: Decimal = Decimal("0.00")
 
     @property
     def is_zero_interest(self) -> bool:
         """Check if this is a 0% interest installment."""
-        return self.installment_rate == Decimal('0.00')
+        return self.installment_rate == Decimal("0.00")
 
     @property
     def total_fee(self) -> Decimal:
@@ -153,13 +167,13 @@ class InstallmentOption:
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'installment_number': self.installment_number,
-            'base_price': str(self.base_price),
-            'total_price': str(self.total_price),
-            'monthly_price': str(self.monthly_price),
-            'installment_rate': str(self.installment_rate),
-            'total_fee': str(self.total_fee),
-            'is_zero_interest': self.is_zero_interest,
+            "installment_number": self.installment_number,
+            "base_price": str(self.base_price),
+            "total_price": str(self.total_price),
+            "monthly_price": str(self.monthly_price),
+            "installment_rate": str(self.installment_rate),
+            "total_fee": str(self.total_fee),
+            "is_zero_interest": self.is_zero_interest,
         }
 
 
@@ -173,6 +187,7 @@ class BankInstallmentInfo:
         bank_code: Bank code identifier
         installment_options: List of available installment options
     """
+
     bank_name: str
     bank_code: int
     installment_options: List[InstallmentOption]
@@ -191,9 +206,9 @@ class BankInstallmentInfo:
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'bank_name': self.bank_name,
-            'bank_code': self.bank_code,
-            'installment_options': [opt.to_dict() for opt in self.installment_options],
+            "bank_name": self.bank_name,
+            "bank_code": self.bank_code,
+            "installment_options": [opt.to_dict() for opt in self.installment_options],
         }
 
 
@@ -235,23 +250,23 @@ class InstallmentClient:
         self.client = client or IyzicoClient()
         self.cache_timeout = getattr(
             settings,
-            'IYZICO_INSTALLMENT_CACHE_TIMEOUT',
+            "IYZICO_INSTALLMENT_CACHE_TIMEOUT",
             300,  # 5 minutes default
         )
         # Rate limiting configuration
         self.rate_limit_requests = getattr(
             settings,
-            'IYZICO_INSTALLMENT_RATE_LIMIT',
+            "IYZICO_INSTALLMENT_RATE_LIMIT",
             self.DEFAULT_RATE_LIMIT,
         )
         self.rate_limit_window = getattr(
             settings,
-            'IYZICO_INSTALLMENT_RATE_WINDOW',
+            "IYZICO_INSTALLMENT_RATE_WINDOW",
             self.DEFAULT_RATE_WINDOW,
         )
         self.rate_limiting_enabled = getattr(
             settings,
-            'IYZICO_RATE_LIMITING_ENABLED',
+            "IYZICO_RATE_LIMITING_ENABLED",
             True,
         )
 
@@ -273,10 +288,10 @@ class InstallmentClient:
         if not self.rate_limiting_enabled:
             return True
 
-        if settings.DEBUG and not getattr(settings, 'IYZICO_RATE_LIMIT_IN_DEBUG', False):
+        if settings.DEBUG and not getattr(settings, "IYZICO_RATE_LIMIT_IN_DEBUG", False):
             return True
 
-        cache_key = f'iyzico_installment_ratelimit_{identifier}'
+        cache_key = f"iyzico_installment_ratelimit_{identifier}"
 
         try:
             current_count = cache.get(cache_key, 0)
@@ -312,10 +327,10 @@ class InstallmentClient:
         if not self.rate_limiting_enabled:
             return
 
-        if settings.DEBUG and not getattr(settings, 'IYZICO_RATE_LIMIT_IN_DEBUG', False):
+        if settings.DEBUG and not getattr(settings, "IYZICO_RATE_LIMIT_IN_DEBUG", False):
             return
 
-        cache_key = f'iyzico_installment_ratelimit_{identifier}'
+        cache_key = f"iyzico_installment_ratelimit_{identifier}"
 
         try:
             current_count = cache.get(cache_key, 0)
@@ -351,7 +366,7 @@ class InstallmentClient:
             ...         print(f"{opt.installment_number}x: {opt.monthly_price}")
         """
         # Validate inputs using comprehensive BIN validation
-        allow_test = getattr(settings, 'IYZICO_ALLOW_TEST_BINS', settings.DEBUG)
+        allow_test = getattr(settings, "IYZICO_ALLOW_TEST_BINS", settings.DEBUG)
         bin_number = validate_bin_number(bin_number, allow_test_bins=allow_test)
 
         if amount <= 0:
@@ -361,7 +376,7 @@ class InstallmentClient:
             )
 
         # Check cache first (before rate limiting - cached responses don't count)
-        cache_key = f'iyzico_installments_{bin_number}_{amount}'
+        cache_key = f"iyzico_installments_{bin_number}_{amount}"
         if use_cache:
             cached = cache.get(cache_key)
             if cached:
@@ -381,28 +396,24 @@ class InstallmentClient:
             from .utils import parse_iyzico_response
 
             request_data = {
-                'binNumber': bin_number,
-                'price': str(amount),
-                'locale': self.client.settings.locale,
+                "binNumber": bin_number,
+                "price": str(amount),
+                "locale": self.client.settings.locale,
             }
 
-            logger.info(
-                f"Fetching installment info for BIN {bin_number}, "
-                f"amount {amount}"
-            )
+            logger.info(f"Fetching installment info for BIN {bin_number}, " f"amount {amount}")
 
             # Use official iyzipay SDK
             installment_info_request = iyzipay.InstallmentInfo()
             raw_response = installment_info_request.retrieve(
-                request_data,
-                self.client.get_options()
+                request_data, self.client.get_options()
             )
 
             # Parse response
             response = parse_iyzico_response(raw_response)
 
             # Check for errors
-            if response.get('status') != 'success':
+            if response.get("status") != "success":
                 raise IyzicoAPIException(
                     f"Failed to retrieve installment info: {response.get('errorMessage', 'Unknown error')}"
                 )
@@ -429,7 +440,7 @@ class InstallmentClient:
             logger.exception(f"Unexpected error getting installment info: {e}")
             raise IyzicoAPIException(
                 f"Failed to retrieve installment info: {str(e)}",
-                error_code="INSTALLMENT_FETCH_ERROR"
+                error_code="INSTALLMENT_FETCH_ERROR",
             ) from e
 
     def _parse_installment_response(
@@ -449,27 +460,25 @@ class InstallmentClient:
         """
         bank_info_list = []
 
-        installment_details = response.get('installmentDetails', [])
+        installment_details = response.get("installmentDetails", [])
 
         for bank_data in installment_details:
-            bank_name = bank_data.get('bankName', 'Unknown')
-            bank_code = bank_data.get('bankCode', 0)
+            bank_name = bank_data.get("bankName", "Unknown")
+            bank_code = bank_data.get("bankCode", 0)
 
-            installment_prices = bank_data.get('installmentPrices', [])
+            installment_prices = bank_data.get("installmentPrices", [])
             installment_options = []
 
             for price_data in installment_prices:
-                installment_number = price_data.get('installmentNumber', 1)
-                total_price = Decimal(str(price_data.get('totalPrice', '0.00')))
-                monthly_price = Decimal(str(price_data.get('installmentPrice', '0.00')))
+                installment_number = price_data.get("installmentNumber", 1)
+                total_price = Decimal(str(price_data.get("totalPrice", "0.00")))
+                monthly_price = Decimal(str(price_data.get("installmentPrice", "0.00")))
 
                 # Calculate installment rate
                 if installment_number > 1 and total_price > base_amount:
-                    installment_rate = (
-                        (total_price - base_amount) / base_amount * 100
-                    )
+                    installment_rate = (total_price - base_amount) / base_amount * 100
                 else:
-                    installment_rate = Decimal('0.00')
+                    installment_rate = Decimal("0.00")
 
                 option = InstallmentOption(
                     installment_number=installment_number,
@@ -579,10 +588,7 @@ class InstallmentClient:
                     all_options[number] = option
 
         # Sort by installment number
-        sorted_options = sorted(
-            all_options.values(),
-            key=lambda x: x.installment_number
-        )
+        sorted_options = sorted(all_options.values(), key=lambda x: x.installment_number)
 
         return sorted_options[:max_options]
 
@@ -619,16 +625,16 @@ class InstallmentClient:
         monthly_price = total_price / installment_number
 
         return {
-            'base_amount': base_amount,
-            'installment_rate': installment_rate,
-            'total_fee': total_fee,
-            'total_price': total_price,
-            'installment_number': installment_number,
-            'monthly_price': monthly_price.quantize(Decimal('0.01')),
+            "base_amount": base_amount,
+            "installment_rate": installment_rate,
+            "total_fee": total_fee,
+            "total_price": total_price,
+            "installment_number": installment_number,
+            "monthly_price": monthly_price.quantize(Decimal("0.01")),
         }
 
     # Cache key tracking key name
-    CACHE_KEYS_REGISTRY = 'iyzico_installment_cache_keys'
+    CACHE_KEYS_REGISTRY = "iyzico_installment_cache_keys"
 
     def _register_cache_key(self, cache_key: str) -> None:
         """
@@ -682,11 +688,23 @@ class InstallmentClient:
             # Clear specific BIN - iterate through common amount values
             # This is safer than pattern matching
             common_amounts = [
-                '0.01', '1', '10', '50', '100', '200', '500', '1000',
-                '2000', '5000', '10000', '25000', '50000', '100000',
+                "0.01",
+                "1",
+                "10",
+                "50",
+                "100",
+                "200",
+                "500",
+                "1000",
+                "2000",
+                "5000",
+                "10000",
+                "25000",
+                "50000",
+                "100000",
             ]
             for amount in common_amounts:
-                cache_key = f'iyzico_installments_{bin_number}_{amount}'
+                cache_key = f"iyzico_installments_{bin_number}_{amount}"
                 if cache.delete(cache_key):
                     self._unregister_cache_key(cache_key)
                     deleted_count += 1
@@ -701,7 +719,7 @@ class InstallmentClient:
 
             for key in list(registered_keys):
                 # Only delete keys that match our expected pattern
-                if key.startswith('iyzico_installments_'):
+                if key.startswith("iyzico_installments_"):
                     if cache.delete(key):
                         deleted_count += 1
 
@@ -741,6 +759,5 @@ def get_installment_display(
         return f"{installment_number}x {monthly_price} TL (0% Interest)"
     else:
         return (
-            f"{installment_number}x {monthly_price} TL "
-            f"(Total: {total_price} TL +{fee} TL fee)"
+            f"{installment_number}x {monthly_price} TL " f"(Total: {total_price} TL +{fee} TL fee)"
         )

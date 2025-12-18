@@ -34,31 +34,37 @@ class IyzicoError(Exception):
 
 class PaymentError(IyzicoError):
     """Payment processing error."""
+
     pass
 
 
 class ValidationError(IyzicoError):
     """Validation error for payment data."""
+
     pass
 
 
 class ConfigurationError(IyzicoError):
     """Configuration error."""
+
     pass
 
 
 class WebhookError(IyzicoError):
     """Webhook processing error."""
+
     pass
 
 
 class CardError(IyzicoError):
     """Card-related error."""
+
     pass
 
 
 class ThreeDSecureError(IyzicoError):
     """3D Secure authentication error."""
+
     pass
 
 

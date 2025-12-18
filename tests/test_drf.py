@@ -273,7 +273,9 @@ class TestIyzicoPaymentViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 2
 
-    def test_retrieve_payment(self, viewset_class, factory, user, payment_model, sample_payment_data):
+    def test_retrieve_payment(
+        self, viewset_class, factory, user, payment_model, sample_payment_data
+    ):
         """Test retrieving a single payment."""
         payment = payment_model.objects.create(
             payment_id="payment-123",
@@ -292,7 +294,9 @@ class TestIyzicoPaymentViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["payment_id"] == "payment-123"
 
-    def test_successful_action(self, viewset_class, factory, user, payment_model, sample_payment_data):
+    def test_successful_action(
+        self, viewset_class, factory, user, payment_model, sample_payment_data
+    ):
         """Test successful payments action."""
         # Create mix of payments
         payment_model.objects.create(
@@ -381,7 +385,9 @@ class TestIyzicoPaymentViewSet:
         assert Decimal(response.data["total_amount"]) == Decimal("350.00")
         assert Decimal(response.data["successful_amount"]) == Decimal("300.00")
 
-    def test_unauthenticated_access_denied(self, viewset_class, factory, payment_model, sample_payment_data):
+    def test_unauthenticated_access_denied(
+        self, viewset_class, factory, payment_model, sample_payment_data
+    ):
         """Test that unauthenticated users cannot access."""
         payment_model.objects.create(
             payment_id="payment-1",
@@ -461,9 +467,7 @@ class TestIyzicoPaymentManagementViewSet:
             **sample_payment_data,
         )
 
-        request = factory.post(
-            f"/api/payments/{payment.pk}/refund/", {"reason": "Test refund"}
-        )
+        request = factory.post(f"/api/payments/{payment.pk}/refund/", {"reason": "Test refund"})
         force_authenticate(request, user=admin_user)
 
         view = viewset_class.as_view({"post": "refund"})
@@ -485,9 +489,7 @@ class TestIyzicoPaymentManagementViewSet:
         )
 
         # Try to refund negative amount
-        request = factory.post(
-            f"/api/payments/{payment.pk}/refund/", {"amount": "-50.00"}
-        )
+        request = factory.post(f"/api/payments/{payment.pk}/refund/", {"amount": "-50.00"})
         force_authenticate(request, user=admin_user)
 
         view = viewset_class.as_view({"post": "refund"})

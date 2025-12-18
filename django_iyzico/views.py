@@ -60,12 +60,12 @@ def _validate_redirect_url(url: Optional[str], request: HttpRequest) -> Optional
     # Check if host matches request host or is in ALLOWED_HOSTS
     from django.conf import settings as django_settings
 
-    allowed_hosts = getattr(django_settings, 'ALLOWED_HOSTS', [])
-    request_host = request.get_host().split(':')[0]  # Remove port if present
+    allowed_hosts = getattr(django_settings, "ALLOWED_HOSTS", [])
+    request_host = request.get_host().split(":")[0]  # Remove port if present
 
     # SECURITY: If ALLOWED_HOSTS contains wildcard '*', reject absolute URL redirects
     # to prevent open redirect attacks (only allow relative URLs in this case)
-    if '*' in allowed_hosts:
+    if "*" in allowed_hosts:
         logger.warning(
             "ALLOWED_HOSTS contains wildcard '*' - rejecting absolute URL redirect "
             f"to prevent open redirect vulnerability: {url}"
@@ -73,19 +73,19 @@ def _validate_redirect_url(url: Optional[str], request: HttpRequest) -> Optional
         return None
 
     if parsed.netloc:
-        netloc_host = parsed.netloc.split(':')[0]  # Remove port if present
+        netloc_host = parsed.netloc.split(":")[0]  # Remove port if present
 
         # Allow if matches request host
         if netloc_host == request_host:
             return url
 
         # Allow if in ALLOWED_HOSTS (excluding wildcards)
-        if netloc_host in allowed_hosts and netloc_host != '*':
+        if netloc_host in allowed_hosts and netloc_host != "*":
             return url
 
         # Allow subdomain wildcard match (e.g., '.example.com' matches 'sub.example.com')
         for allowed in allowed_hosts:
-            if allowed.startswith('.') and netloc_host.endswith(allowed):
+            if allowed.startswith(".") and netloc_host.endswith(allowed):
                 return url
 
     # Reject external URLs
@@ -311,7 +311,8 @@ def webhook_view(request: HttpRequest) -> JsonResponse:
     webhook_secret = iyzico_settings.webhook_secret
 
     from django.conf import settings as django_settings
-    is_debug = getattr(django_settings, 'DEBUG', False)
+
+    is_debug = getattr(django_settings, "DEBUG", False)
 
     # SECURITY: In production, require BOTH IP whitelist AND webhook secret
     if not is_debug:
@@ -355,7 +356,7 @@ def webhook_view(request: HttpRequest) -> JsonResponse:
 
     # Verify webhook signature (if configured)
     if webhook_secret:
-        signature = request.META.get('HTTP_X_IYZICO_SIGNATURE', '')
+        signature = request.META.get("HTTP_X_IYZICO_SIGNATURE", "")
         payload = request.body
 
         if not verify_webhook_signature(payload, signature, webhook_secret):
@@ -440,21 +441,17 @@ def _handle_3ds_success(request: HttpRequest, response) -> HttpResponse:
     session_url = _validate_redirect_url(request.session.get("iyzico_success_url"), request)
     settings_url = _validate_redirect_url(getattr(settings, "IYZICO_SUCCESS_URL", None), request)
 
-    success_url = (
-        session_url
-        or settings_url
-        or "/payment/success/"
-    )
+    success_url = session_url or settings_url or "/payment/success/"
 
     # Clean up session - remove URL redirects and previous payment data (consistent with error handler)
     payment_session_keys = [
-        'iyzico_success_url',
-        'iyzico_error_url',
-        'last_payment_id',
-        'last_payment_status',
-        'last_payment_error',
-        'last_payment_error_code',
-        'last_payment_conversation_id',
+        "iyzico_success_url",
+        "iyzico_error_url",
+        "last_payment_id",
+        "last_payment_status",
+        "last_payment_error",
+        "last_payment_error_code",
+        "last_payment_conversation_id",
     ]
     for key in payment_session_keys:
         request.session.pop(key, None)
@@ -496,21 +493,17 @@ def _handle_3ds_error(
     session_url = _validate_redirect_url(request.session.get("iyzico_error_url"), request)
     settings_url = _validate_redirect_url(getattr(settings, "IYZICO_ERROR_URL", None), request)
 
-    error_url = (
-        session_url
-        or settings_url
-        or "/payment/error/"
-    )
+    error_url = session_url or settings_url or "/payment/error/"
 
     # Clean up session - remove URL redirects and previous payment data
     payment_session_keys = [
-        'iyzico_success_url',
-        'iyzico_error_url',
-        'last_payment_id',
-        'last_payment_status',
-        'last_payment_error',
-        'last_payment_error_code',
-        'last_payment_conversation_id',
+        "iyzico_success_url",
+        "iyzico_error_url",
+        "last_payment_id",
+        "last_payment_status",
+        "last_payment_error",
+        "last_payment_error_code",
+        "last_payment_conversation_id",
     ]
     for key in payment_session_keys:
         request.session.pop(key, None)
