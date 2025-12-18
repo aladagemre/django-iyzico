@@ -72,29 +72,33 @@ if HAS_DRF:
             help_text="Buyer's full name",
         )
 
-        is_successful = serializers.BooleanField(
-            source="is_successful",
-            read_only=True,
+        is_successful = serializers.SerializerMethodField(
             help_text="Whether payment was successful",
         )
 
-        is_failed = serializers.BooleanField(
-            source="is_failed",
-            read_only=True,
+        is_failed = serializers.SerializerMethodField(
             help_text="Whether payment failed",
         )
 
-        is_pending = serializers.BooleanField(
-            source="is_pending",
-            read_only=True,
+        is_pending = serializers.SerializerMethodField(
             help_text="Whether payment is pending",
         )
 
-        can_be_refunded = serializers.BooleanField(
-            source="can_be_refunded",
-            read_only=True,
+        can_be_refunded = serializers.SerializerMethodField(
             help_text="Whether payment can be refunded",
         )
+
+        def get_is_successful(self, obj):
+            return obj.is_successful()
+
+        def get_is_failed(self, obj):
+            return obj.is_failed()
+
+        def get_is_pending(self, obj):
+            return obj.is_pending()
+
+        def get_can_be_refunded(self, obj):
+            return obj.can_be_refunded()
 
         class Meta:
             model = AbstractIyzicoPayment

@@ -61,7 +61,7 @@ class TestProcessDueSubscriptions:
     """Tests for process_due_subscriptions task."""
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_process_due_subscriptions_success(
         self, mock_manager_class, mock_get_payment, user, plan
     ):
@@ -124,7 +124,7 @@ class TestProcessDueSubscriptions:
         assert result["failed"] == 1
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_process_due_subscriptions_payment_failure(
         self, mock_manager_class, mock_get_payment, user, plan
     ):
@@ -182,7 +182,7 @@ class TestRetryFailedPayments:
     """Tests for retry_failed_payments task."""
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_retry_failed_payments_success(self, mock_manager_class, mock_get_payment, user, plan):
         """Test successful payment retry."""
         now = timezone.now()
@@ -217,7 +217,7 @@ class TestRetryFailedPayments:
         assert result["failed"] == 0
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_retry_failed_payments_max_retries_reached(
         self, mock_manager_class, mock_get_payment, user, plan
     ):
@@ -232,23 +232,28 @@ class TestRetryFailedPayments:
             current_period_start=now - timedelta(days=30),
             current_period_end=now,
             next_billing_date=now,
-            failed_payment_count=2,
+            failed_payment_count=2,  # Less than max_retries (3) to pass the filter
             last_payment_attempt=now - timedelta(days=1),
         )
 
         mock_get_payment.return_value = {"cardNumber": "5528790000000008"}
 
-        # Mock failed retry
+        # Mock failed retry that simulates incrementing the failed_payment_count
         mock_payment = Mock()
         mock_payment.is_successful.return_value = False
 
+        def process_billing_side_effect(subscription, payment_method):
+            # Simulate what the real process_billing would do - increment failed count
+            subscription.failed_payment_count += 1
+            subscription.save()
+            return mock_payment
+
         mock_manager = Mock()
-        mock_manager.process_billing.return_value = mock_payment
+        mock_manager.process_billing.side_effect = process_billing_side_effect
         mock_manager_class.return_value = mock_manager
 
         with patch("django_iyzico.tasks.send_payment_notification"):
-            with patch("django_iyzico.tasks.getattr", return_value=3):  # Max retries = 3
-                retry_failed_payments()
+            retry_failed_payments()
 
         subscription.refresh_from_db()
         assert subscription.status == SubscriptionStatus.EXPIRED
@@ -354,7 +359,7 @@ class TestCheckTrialExpiration:
     """Tests for check_trial_expiration task."""
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_expired_trial_with_successful_payment(
         self, mock_manager_class, mock_get_payment, user, plan
     ):
@@ -410,21 +415,29 @@ class TestCheckTrialExpiration:
 
     def test_trial_ending_soon_notification(self, user, plan):
         """Test notification for trials ending in 7 days."""
-        now = timezone.now()
+        # Use a fixed time with no fractional seconds for consistent date matching
+        now = timezone.now().replace(microsecond=0)
+        # Calculate trial end date exactly 7 days from now at start of day
+        # to match the filter's date comparison
+        trial_end = (now + timedelta(days=7)).replace(hour=12, minute=0, second=0)
 
         subscription = Subscription.objects.create(
             user=user,
             plan=plan,
             status=SubscriptionStatus.TRIALING,
             start_date=now - timedelta(days=7),
-            trial_end_date=now + timedelta(days=7),  # Ends in 7 days
+            trial_end_date=trial_end,  # Ends in 7 days
             current_period_start=now - timedelta(days=7),
-            current_period_end=now + timedelta(days=7),
-            next_billing_date=now + timedelta(days=7),
+            current_period_end=trial_end,
+            next_billing_date=trial_end,
         )
 
-        with patch("django_iyzico.tasks.send_payment_notification") as mock_notify:
-            result = check_trial_expiration()
+        with patch("django_iyzico.tasks.timezone") as mock_tz:
+            # Mock timezone.now() in the task to return our test's 'now'
+            mock_tz.now.return_value = now
+            mock_tz.timedelta = timedelta
+            with patch("django_iyzico.tasks.send_payment_notification") as mock_notify:
+                result = check_trial_expiration()
 
         assert result["notified"] == 1
         mock_notify.delay.assert_called_with(
@@ -437,7 +450,7 @@ class TestChargeSubscription:
     """Tests for charge_subscription task."""
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_charge_subscription_success(self, mock_manager_class, mock_get_payment, user, plan):
         """Test successful subscription charge."""
         now = timezone.now()
@@ -473,7 +486,7 @@ class TestChargeSubscription:
         assert result is False
 
     @patch("django_iyzico.tasks._get_stored_payment_method")
-    @patch("django_iyzico.tasks.SubscriptionManager")
+    @patch("django_iyzico.subscription_manager.SubscriptionManager")
     def test_charge_subscription_with_payment_method(
         self, mock_manager_class, mock_get_payment, user, plan
     ):
@@ -518,6 +531,7 @@ class TestSendPaymentNotification:
             plan=plan,
             status=SubscriptionStatus.ACTIVE,
             start_date=now,
+            trial_end_date=now + timedelta(days=7),  # Required for template building
             current_period_start=now,
             current_period_end=now + timedelta(days=30),
             next_billing_date=now + timedelta(days=30),
@@ -542,6 +556,7 @@ class TestSendPaymentNotification:
             plan=plan,
             status=SubscriptionStatus.PAST_DUE,
             start_date=now,
+            trial_end_date=now + timedelta(days=7),  # Required for template building
             current_period_start=now,
             current_period_end=now + timedelta(days=30),
             next_billing_date=now + timedelta(days=30),
@@ -599,6 +614,7 @@ class TestSendPaymentNotification:
             plan=plan,
             status=SubscriptionStatus.ACTIVE,
             start_date=now,
+            trial_end_date=now + timedelta(days=7),  # Required for template building
             current_period_start=now,
             current_period_end=now + timedelta(days=30),
             next_billing_date=now + timedelta(days=30),

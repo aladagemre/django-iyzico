@@ -317,12 +317,11 @@ class TestBestInstallmentOptionsView(TestCase):
     def test_get_best_options_display_formatting(self, mock_client_class):
         """Test that display formatting is applied."""
         mock_option = InstallmentOption(
-            3,
-            Decimal("100"),
-            Decimal("103"),
-            Decimal("34.33"),
-            Decimal("3.00"),
-            Decimal("3.00"),
+            installment_number=3,
+            base_price=Decimal("100"),
+            total_price=Decimal("103"),
+            monthly_price=Decimal("34.33"),
+            installment_rate=Decimal("3.00"),
         )
 
         mock_client = MagicMock()
@@ -505,6 +504,9 @@ class TestGetInstallmentOptionsFunction(TestCase):
                 "amount": "100.00",
             },
         )
+        # Add mock authenticated user for login_required decorator
+        request.user = MagicMock()
+        request.user.is_authenticated = True
 
         response = get_installment_options(request)
 
@@ -517,7 +519,7 @@ class TestGetInstallmentOptionsFunction(TestCase):
 
 
 try:
-    from rest_framework.test import APIRequestFactory
+    from rest_framework.test import APIRequestFactory, force_authenticate
 
     from django_iyzico.installment_views import InstallmentViewSet
 
@@ -526,8 +528,13 @@ try:
 
         def setUp(self):
             """Set up test fixtures."""
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
             self.factory = APIRequestFactory()
-            self.viewset = InstallmentViewSet()
+            self.user = User.objects.create_user(
+                username="testuser", email="test@example.com", password="testpass"
+            )
 
         @patch("django_iyzico.installment_views.InstallmentClient")
         def test_options_action(self, mock_client_class):
@@ -548,8 +555,10 @@ try:
                     "amount": "100.00",
                 },
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.options(request)
+            view = InstallmentViewSet.as_view({"get": "options"})
+            response = view(request)
 
             assert response.status_code == 200
             assert "banks" in response.data
@@ -572,8 +581,10 @@ try:
                     "amount": "100.00",
                 },
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.best(request)
+            view = InstallmentViewSet.as_view({"get": "best"})
+            response = view(request)
 
             assert response.status_code == 200
             assert "options" in response.data
@@ -594,9 +605,12 @@ try:
                     "amount": "100.00",
                     "installment": 3,
                 },
+                format="json",
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.validate(request)
+            view = InstallmentViewSet.as_view({"post": "validate"})
+            response = view(request)
 
             assert response.status_code == 200
             assert response.data["valid"] is True
@@ -609,8 +623,10 @@ try:
                     "bin": "554960",
                 },
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.options(request)
+            view = InstallmentViewSet.as_view({"get": "options"})
+            response = view(request)
 
             assert response.status_code == 400
 
@@ -622,8 +638,10 @@ try:
                     "amount": "100.00",
                 },
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.best(request)
+            view = InstallmentViewSet.as_view({"get": "best"})
+            response = view(request)
 
             assert response.status_code == 400
 
@@ -635,9 +653,12 @@ try:
                     "bin": "554960",
                     "amount": "100.00",
                 },
+                format="json",
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.validate(request)
+            view = InstallmentViewSet.as_view({"post": "validate"})
+            response = view(request)
 
             assert response.status_code == 400
 
@@ -655,9 +676,12 @@ try:
                     "amount": "100.00",
                     "installment": 9,
                 },
+                format="json",
             )
+            force_authenticate(request, user=self.user)
 
-            response = self.viewset.validate(request)
+            view = InstallmentViewSet.as_view({"post": "validate"})
+            response = view(request)
 
             assert response.status_code == 200
             assert response.data["valid"] is False

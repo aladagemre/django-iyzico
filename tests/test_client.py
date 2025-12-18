@@ -595,3 +595,442 @@ class TestHandlePaymentError:
 
         with pytest.raises(PaymentError):
             client._handle_payment_error(response)
+
+
+class TestRefundPayment:
+    """Test refund_payment() method."""
+
+    @pytest.fixture
+    def mock_refund_class(self):
+        """Mock the iyzipay.Refund class."""
+        with patch("django_iyzico.client.iyzipay.Refund") as mock:
+            yield mock
+
+    def test_successful_full_refund(self, mock_refund_class):
+        """Test successful full refund."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "paymentId": "payment-123",
+            "paymentTransactionId": "refund-456",
+            "price": "100.00",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_refund_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        response = client.refund_payment(
+            payment_id="payment-123",
+            ip_address="192.168.1.1",
+        )
+
+        assert response.is_successful() is True
+        assert response.payment_id == "payment-123"
+        mock_instance.create.assert_called_once()
+
+    def test_successful_partial_refund(self, mock_refund_class):
+        """Test successful partial refund."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "paymentId": "payment-123",
+            "price": "50.00",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_refund_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        response = client.refund_payment(
+            payment_id="payment-123",
+            ip_address="192.168.1.1",
+            amount=Decimal("50.00"),
+            reason="Customer requested partial refund",
+        )
+
+        assert response.is_successful() is True
+        call_args = mock_instance.create.call_args[0][0]
+        assert call_args["price"] == "50.00"
+        assert call_args["description"] == "Customer requested partial refund"
+
+    def test_refund_missing_payment_id_raises_error(self):
+        """Test refund without payment ID raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.refund_payment(payment_id="", ip_address="192.168.1.1")
+
+        assert "MISSING_PAYMENT_ID" in str(exc_info.value)
+
+    def test_refund_missing_ip_address_raises_error(self):
+        """Test refund without IP address raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.refund_payment(payment_id="payment-123", ip_address="")
+
+        assert "MISSING_IP_ADDRESS" in str(exc_info.value)
+
+    def test_refund_invalid_ip_address_raises_error(self):
+        """Test refund with invalid IP address raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.refund_payment(payment_id="payment-123", ip_address="invalid-ip")
+
+        assert "INVALID_IP_ADDRESS" in str(exc_info.value)
+
+    def test_failed_refund_raises_payment_error(self, mock_refund_class):
+        """Test failed refund raises PaymentError."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "failure",
+            "errorCode": "1001",
+            "errorMessage": "Refund not allowed",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_refund_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(PaymentError) as exc_info:
+            client.refund_payment(payment_id="payment-123", ip_address="192.168.1.1")
+
+        assert "Refund not allowed" in str(exc_info.value)
+
+    def test_refund_sdk_exception_raises_payment_error(self, mock_refund_class):
+        """Test SDK exception during refund raises PaymentError."""
+        mock_instance = Mock()
+        mock_instance.create.side_effect = Exception("SDK error")
+        mock_refund_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(PaymentError) as exc_info:
+            client.refund_payment(payment_id="payment-123", ip_address="192.168.1.1")
+
+        assert "SDK error" in str(exc_info.value)
+
+
+class TestRegisterCard:
+    """Test register_card() method."""
+
+    @pytest.fixture
+    def mock_card_class(self):
+        """Mock the iyzipay.Card class."""
+        with patch("django_iyzico.client.iyzipay.Card") as mock:
+            yield mock
+
+    @pytest.fixture
+    def sample_card_info(self):
+        """Sample card information for registration."""
+        return {
+            "cardAlias": "My Card",
+            "cardHolderName": "John Doe",
+            "cardNumber": "5528790000000008",
+            "expireMonth": "12",
+            "expireYear": "2030",
+        }
+
+    @pytest.fixture
+    def sample_buyer(self):
+        """Sample buyer info."""
+        return {
+            "id": "BY123",
+            "name": "John",
+            "surname": "Doe",
+            "email": "john@example.com",
+            "identityNumber": "11111111111",
+        }
+
+    def test_successful_card_registration(
+        self, mock_card_class, sample_card_info, sample_buyer
+    ):
+        """Test successful card registration."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "cardToken": "card-token-123",
+            "cardUserKey": "card-user-key-456",
+            "cardAlias": "My Card",
+            "lastFourDigits": "0008",
+            "cardAssociation": "MASTER_CARD",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        result = client.register_card(
+            card_info=sample_card_info,
+            buyer=sample_buyer,
+        )
+
+        assert result["card_token"] == "card-token-123"
+        assert result["card_user_key"] == "card-user-key-456"
+        mock_instance.create.assert_called_once()
+
+    def test_card_registration_with_external_id(
+        self, mock_card_class, sample_card_info, sample_buyer
+    ):
+        """Test card registration with external ID."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "cardToken": "card-token-123",
+            "cardUserKey": "card-user-key-456",
+            "externalId": "EXT-123",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        client.register_card(
+            card_info=sample_card_info,
+            buyer=sample_buyer,
+            external_id="EXT-123",
+        )
+
+        call_args = mock_instance.create.call_args[0][0]
+        assert call_args.get("externalId") == "EXT-123"
+
+    def test_failed_card_registration_raises_error(
+        self, mock_card_class, sample_card_info, sample_buyer
+    ):
+        """Test failed card registration raises CardError."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "failure",
+            "errorCode": "5001",
+            "errorMessage": "Invalid card number",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(CardError) as exc_info:
+            client.register_card(card_info=sample_card_info, buyer=sample_buyer)
+
+        assert "Invalid card number" in str(exc_info.value)
+
+    def test_card_registration_sdk_exception(
+        self, mock_card_class, sample_card_info, sample_buyer
+    ):
+        """Test SDK exception during registration raises CardError."""
+        mock_instance = Mock()
+        mock_instance.create.side_effect = Exception("SDK error")
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(CardError) as exc_info:
+            client.register_card(card_info=sample_card_info, buyer=sample_buyer)
+
+        assert "SDK error" in str(exc_info.value)
+
+
+class TestDeleteCard:
+    """Test delete_card() method."""
+
+    @pytest.fixture
+    def mock_card_class(self):
+        """Mock the iyzipay.Card class."""
+        with patch("django_iyzico.client.iyzipay.Card") as mock:
+            yield mock
+
+    def test_successful_card_deletion(self, mock_card_class):
+        """Test successful card deletion."""
+        mock_instance = Mock()
+        mock_response_data = {"status": "success"}
+        mock_instance.delete.return_value = mock_response_data
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        result = client.delete_card(
+            card_token="card-token-123",
+            card_user_key="card-user-key-456",
+        )
+
+        assert result is True
+        mock_instance.delete.assert_called_once()
+
+    def test_delete_card_missing_token_raises_error(self):
+        """Test deleting card without token raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.delete_card(card_token="", card_user_key="user-key")
+
+        assert "Card token" in str(exc_info.value)
+
+    def test_delete_card_missing_user_key_raises_error(self):
+        """Test deleting card without user key raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.delete_card(card_token="card-token", card_user_key="")
+
+        assert "Card user key" in str(exc_info.value)
+
+    def test_failed_card_deletion_raises_error(self, mock_card_class):
+        """Test failed card deletion raises CardError."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "failure",
+            "errorCode": "1001",
+            "errorMessage": "Card not found",
+        }
+        mock_instance.delete.return_value = mock_response_data
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(CardError) as exc_info:
+            client.delete_card(
+                card_token="card-token-123",
+                card_user_key="card-user-key-456",
+            )
+
+        assert "Card not found" in str(exc_info.value)
+
+    def test_delete_card_sdk_exception(self, mock_card_class):
+        """Test SDK exception during deletion raises CardError."""
+        mock_instance = Mock()
+        mock_instance.delete.side_effect = Exception("SDK error")
+        mock_card_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(CardError) as exc_info:
+            client.delete_card(
+                card_token="card-token-123",
+                card_user_key="card-user-key-456",
+            )
+
+        assert "SDK error" in str(exc_info.value)
+
+
+class TestCreatePaymentWithToken:
+    """Test create_payment_with_token() method."""
+
+    @pytest.fixture
+    def mock_payment_class(self):
+        """Mock the iyzipay.Payment class."""
+        with patch("django_iyzico.client.iyzipay.Payment") as mock:
+            yield mock
+
+    @pytest.fixture
+    def sample_order_data(self):
+        """Sample order data for payment."""
+        return {
+            "conversationId": "test-conv-123",
+            "price": "100.00",
+            "paidPrice": "100.00",
+            "currency": "TRY",
+            "basketId": "B123",
+        }
+
+    @pytest.fixture
+    def sample_buyer(self):
+        """Sample buyer data."""
+        return {
+            "id": "BY123",
+            "name": "John",
+            "surname": "Doe",
+            "email": "john@example.com",
+            "identityNumber": "11111111111",
+            "registrationAddress": "Test Address",
+            "city": "Istanbul",
+            "country": "Turkey",
+        }
+
+    @pytest.fixture
+    def sample_address(self):
+        """Sample address."""
+        return {
+            "address": "Test Address",
+            "city": "Istanbul",
+            "country": "Turkey",
+        }
+
+    @pytest.fixture
+    def sample_basket_items(self):
+        """Sample basket items."""
+        return [
+            {
+                "id": "ITEM1",
+                "name": "Test Item",
+                "category1": "Test Category",
+                "itemType": "VIRTUAL",
+                "price": "100.00",
+            }
+        ]
+
+    def test_successful_token_payment(
+        self,
+        mock_payment_class,
+        sample_order_data,
+        sample_buyer,
+        sample_address,
+        sample_basket_items,
+    ):
+        """Test successful payment with stored card token."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "paymentId": "payment-123",
+            "price": "100.00",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_payment_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        response = client.create_payment_with_token(
+            order_data=sample_order_data,
+            card_token="card-token-123",
+            card_user_key="user-key-456",
+            buyer=sample_buyer,
+            billing_address=sample_address,
+            shipping_address=sample_address,
+            basket_items=sample_basket_items,
+        )
+
+        assert response.is_successful() is True
+        assert response.payment_id == "payment-123"
+
+        # Verify token data was passed
+        call_args = mock_instance.create.call_args[0][0]
+        assert call_args["paymentCard"]["cardToken"] == "card-token-123"
+        assert call_args["paymentCard"]["cardUserKey"] == "user-key-456"
+
+    def test_failed_token_payment_raises_payment_error(
+        self,
+        mock_payment_class,
+        sample_order_data,
+        sample_buyer,
+        sample_address,
+        sample_basket_items,
+    ):
+        """Test failed token payment raises PaymentError."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "failure",
+            "errorCode": "5006",
+            "errorMessage": "Card declined",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_payment_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(CardError) as exc_info:
+            client.create_payment_with_token(
+                order_data=sample_order_data,
+                card_token="card-token-123",
+                card_user_key="user-key-456",
+                buyer=sample_buyer,
+                billing_address=sample_address,
+                shipping_address=sample_address,
+                basket_items=sample_basket_items,
+            )
+
+        assert "Card declined" in str(exc_info.value)

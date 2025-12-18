@@ -38,11 +38,22 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+# Create a concrete serializer for testing with TestPayment model
+if HAS_DRF and HAS_DRF_COMPONENTS:
+    from tests.models import TestPayment
+
+    class TestPaymentSerializer(IyzicoPaymentSerializer):
+        """Concrete serializer for testing."""
+
+        class Meta(IyzicoPaymentSerializer.Meta):
+            model = TestPayment
+
+
 @pytest.mark.django_db
 class TestIyzicoPaymentSerializer:
     """Test IyzicoPaymentSerializer."""
 
-    def test_serialize_payment(self, payment_model, sample_payment_data):
+    def test_serialize_payment(self, payment_model):
         """Test serializing a payment."""
         payment = payment_model.objects.create(
             payment_id="test-payment-123",
@@ -55,10 +66,9 @@ class TestIyzicoPaymentSerializer:
             buyer_surname="Doe",
             card_last_four_digits="1234",
             card_association="VISA",
-            **sample_payment_data,
         )
 
-        serializer = IyzicoPaymentSerializer(payment)
+        serializer = TestPaymentSerializer(payment)
         data = serializer.data
 
         # Check basic fields
@@ -75,7 +85,7 @@ class TestIyzicoPaymentSerializer:
         assert data["is_failed"] is False
         assert data["can_be_refunded"] is True
 
-    def test_serialize_failed_payment(self, payment_model, sample_payment_data):
+    def test_serialize_failed_payment(self, payment_model):
         """Test serializing a failed payment."""
         payment = payment_model.objects.create(
             payment_id="failed-payment",
@@ -84,10 +94,9 @@ class TestIyzicoPaymentSerializer:
             status=PaymentStatus.FAILED,
             error_code="5006",
             error_message="Card declined",
-            **sample_payment_data,
         )
 
-        serializer = IyzicoPaymentSerializer(payment)
+        serializer = TestPaymentSerializer(payment)
         data = serializer.data
 
         assert data["status"] == PaymentStatus.FAILED
@@ -96,17 +105,16 @@ class TestIyzicoPaymentSerializer:
         assert data["error_code"] == "5006"
         assert data["error_message"] == "Card declined"
 
-    def test_serializer_read_only(self, payment_model, sample_payment_data):
+    def test_serializer_read_only(self, payment_model):
         """Test that serializer is read-only."""
         payment = payment_model.objects.create(
             payment_id="test-payment",
             conversation_id="conv-123",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
-        serializer = IyzicoPaymentSerializer(payment)
+        serializer = TestPaymentSerializer(payment)
 
         # All fields should be read-only
         for field_name, field in serializer.fields.items():
@@ -231,6 +239,7 @@ class TestIyzicoPaymentViewSet:
 
         class TestPaymentViewSet(IyzicoPaymentViewSet):
             queryset = payment_model.objects.all()
+            serializer_class = TestPaymentSerializer
 
         return TestPaymentViewSet
 
@@ -239,7 +248,7 @@ class TestIyzicoPaymentViewSet:
         """Create API request factory."""
         return APIRequestFactory()
 
-    def test_list_payments(self, viewset_class, factory, user, payment_model, sample_payment_data):
+    def test_list_payments(self, viewset_class, factory, user, payment_model):
         """Test listing payments."""
         # Create test payments
         payment_model.objects.create(
@@ -247,7 +256,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         payment_model.objects.create(
@@ -255,7 +263,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         # Create request
@@ -269,16 +276,13 @@ class TestIyzicoPaymentViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 2
 
-    def test_retrieve_payment(
-        self, viewset_class, factory, user, payment_model, sample_payment_data
-    ):
+    def test_retrieve_payment(self, viewset_class, factory, user, payment_model):
         """Test retrieving a single payment."""
         payment = payment_model.objects.create(
             payment_id="payment-123",
             conversation_id="conv-123",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         request = factory.get(f"/api/payments/{payment.pk}/")
@@ -290,9 +294,7 @@ class TestIyzicoPaymentViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["payment_id"] == "payment-123"
 
-    def test_successful_action(
-        self, viewset_class, factory, user, payment_model, sample_payment_data
-    ):
+    def test_successful_action(self, viewset_class, factory, user, payment_model):
         """Test successful payments action."""
         # Create mix of payments
         payment_model.objects.create(
@@ -300,7 +302,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         payment_model.objects.create(
@@ -308,7 +309,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.FAILED,
-            **sample_payment_data,
         )
 
         request = factory.get("/api/payments/successful/")
@@ -321,14 +321,13 @@ class TestIyzicoPaymentViewSet:
         assert len(response.data) == 1
         assert response.data[0]["status"] == PaymentStatus.SUCCESS
 
-    def test_failed_action(self, viewset_class, factory, user, payment_model, sample_payment_data):
+    def test_failed_action(self, viewset_class, factory, user, payment_model):
         """Test failed payments action."""
         payment_model.objects.create(
             payment_id="failed-1",
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.FAILED,
-            **sample_payment_data,
         )
 
         request = factory.get("/api/payments/failed/")
@@ -341,7 +340,7 @@ class TestIyzicoPaymentViewSet:
         assert len(response.data) == 1
         assert response.data[0]["status"] == PaymentStatus.FAILED
 
-    def test_stats_action(self, viewset_class, factory, user, payment_model, sample_payment_data):
+    def test_stats_action(self, viewset_class, factory, user, payment_model):
         """Test payment statistics action."""
         # Create various payments
         payment_model.objects.create(
@@ -349,7 +348,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         payment_model.objects.create(
@@ -357,7 +355,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-2",
             amount=Decimal("200.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         payment_model.objects.create(
@@ -365,7 +362,6 @@ class TestIyzicoPaymentViewSet:
             conversation_id="conv-3",
             amount=Decimal("50.00"),
             status=PaymentStatus.FAILED,
-            **sample_payment_data,
         )
 
         request = factory.get("/api/payments/stats/")
@@ -381,23 +377,24 @@ class TestIyzicoPaymentViewSet:
         assert Decimal(response.data["total_amount"]) == Decimal("350.00")
         assert Decimal(response.data["successful_amount"]) == Decimal("300.00")
 
-    def test_unauthenticated_access_denied(
-        self, viewset_class, factory, payment_model, sample_payment_data
-    ):
+    def test_unauthenticated_access_denied(self, viewset_class, factory, payment_model):
         """Test that unauthenticated users cannot access."""
         payment_model.objects.create(
             payment_id="payment-1",
             conversation_id="conv-1",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         request = factory.get("/api/payments/")
         view = viewset_class.as_view({"get": "list"})
         response = view(request)
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        # DRF returns 403 Forbidden for unauthenticated requests by default
+        assert response.status_code in (
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        )
 
 
 @pytest.mark.django_db
@@ -417,6 +414,7 @@ class TestIyzicoPaymentManagementViewSet:
 
         class TestPaymentManagementViewSet(IyzicoPaymentManagementViewSet):
             queryset = payment_model.objects.all()
+            serializer_class = TestPaymentSerializer
 
         return TestPaymentManagementViewSet
 
@@ -426,7 +424,7 @@ class TestIyzicoPaymentManagementViewSet:
         return APIRequestFactory()
 
     def test_refund_action_requires_admin(
-        self, viewset_class, factory, django_user_model, payment_model, sample_payment_data
+        self, viewset_class, factory, django_user_model, payment_model
     ):
         """Test that refund action requires admin."""
         # Create regular user
@@ -439,7 +437,6 @@ class TestIyzicoPaymentManagementViewSet:
             conversation_id="conv-123",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         request = factory.post(f"/api/payments/{payment.pk}/refund/", {})
@@ -451,7 +448,7 @@ class TestIyzicoPaymentManagementViewSet:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_refund_non_refundable_payment(
-        self, viewset_class, factory, admin_user, payment_model, sample_payment_data
+        self, viewset_class, factory, admin_user, payment_model
     ):
         """Test refunding a non-refundable payment."""
         # Create failed payment (cannot be refunded)
@@ -460,7 +457,6 @@ class TestIyzicoPaymentManagementViewSet:
             conversation_id="conv-123",
             amount=Decimal("100.00"),
             status=PaymentStatus.FAILED,
-            **sample_payment_data,
         )
 
         request = factory.post(f"/api/payments/{payment.pk}/refund/", {"reason": "Test refund"})
@@ -472,16 +468,13 @@ class TestIyzicoPaymentManagementViewSet:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "cannot be refunded" in response.data["error"].lower()
 
-    def test_refund_invalid_amount(
-        self, viewset_class, factory, admin_user, payment_model, sample_payment_data
-    ):
+    def test_refund_invalid_amount(self, viewset_class, factory, admin_user, payment_model):
         """Test refund with invalid amount."""
         payment = payment_model.objects.create(
             payment_id="payment-123",
             conversation_id="conv-123",
             amount=Decimal("100.00"),
             status=PaymentStatus.SUCCESS,
-            **sample_payment_data,
         )
 
         # Try to refund negative amount

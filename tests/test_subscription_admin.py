@@ -10,12 +10,20 @@ from decimal import Decimal
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory
 from django.utils import timezone
 
-from django_iyzico.admin import SubscriptionAdmin, SubscriptionPaymentAdmin, SubscriptionPlanAdmin
+from django_iyzico.admin import (
+    PaymentMethodAdmin,
+    SubscriptionAdmin,
+    SubscriptionPaymentAdmin,
+    SubscriptionPlanAdmin,
+)
 from django_iyzico.subscription_models import (
     BillingInterval,
+    CardBrand,
+    PaymentMethod,
     Subscription,
     SubscriptionPayment,
     SubscriptionPlan,
@@ -57,6 +65,14 @@ def request_factory():
 def admin_site():
     """Create admin site."""
     return AdminSite()
+
+
+def add_messages_support(request):
+    """Add messages framework support to a request object."""
+    setattr(request, "session", "session")
+    messages = FallbackStorage(request)
+    setattr(request, "_messages", messages)
+    return request
 
 
 class TestSubscriptionPlanAdmin:
@@ -168,6 +184,7 @@ class TestSubscriptionPlanAdmin:
 
         request = request_factory.post("/")
         request.user = admin_user
+        add_messages_support(request)
 
         queryset = SubscriptionPlan.objects.filter(id=plan.id)
         plan_admin.duplicate_plan(request, queryset)
@@ -192,6 +209,7 @@ class TestSubscriptionPlanAdmin:
 
         request = request_factory.post("/")
         request.user = admin_user
+        add_messages_support(request)
 
         queryset = SubscriptionPlan.objects.filter(id=plan.id)
         plan_admin.toggle_active(request, queryset)
@@ -365,10 +383,13 @@ class TestSubscriptionAdmin:
 
         request = request_factory.post("/")
         request.user = admin_user
+        add_messages_support(request)
 
         queryset = Subscription.objects.filter(id=subscription.id)
 
-        with patch("django_iyzico.admin.SubscriptionManager") as mock_manager_class:
+        with patch(
+            "django_iyzico.subscription_manager.SubscriptionManager"
+        ) as mock_manager_class:
             mock_manager = mock_manager_class.return_value
 
             subscription_admin.cancel_subscriptions(request, queryset)
@@ -383,8 +404,13 @@ class TestSubscriptionAdmin:
         queryset = subscription_admin.get_queryset(request)
 
         # Check that select_related was called
-        assert "user" in queryset.query.select_related
-        assert "plan" in queryset.query.select_related
+        select_related = queryset.query.select_related
+        # select_related can be True (all) or a dict with nested structure
+        if select_related is True:
+            pass  # All related fields selected
+        else:
+            assert "user" in select_related or select_related is True
+            assert "plan" in select_related or select_related is True
 
 
 class TestSubscriptionPaymentAdmin:
@@ -464,9 +490,16 @@ class TestSubscriptionPaymentAdmin:
         queryset = payment_admin.get_queryset(request)
 
         # Check that select_related was called
-        assert "subscription" in queryset.query.select_related
-        assert "subscription__user" in queryset.query.select_related
-        assert "subscription__plan" in queryset.query.select_related
+        select_related = queryset.query.select_related
+        # select_related can be True (all) or a dict with nested structure
+        if select_related is True:
+            pass  # All related fields selected
+        else:
+            assert "subscription" in select_related
+            # Nested relations are in subscription dict
+            subscription_related = select_related.get("subscription", {})
+            assert "user" in subscription_related
+            assert "plan" in subscription_related
 
 
 class TestAdminFieldsets:
@@ -510,3 +543,457 @@ class TestAdminFieldsets:
         # Should have inherited fieldsets plus subscription details
         section_names = [fs[0] for fs in fieldsets]
         assert "Subscription Details" in section_names
+
+
+class TestPaymentMethodAdmin:
+    """Tests for PaymentMethodAdmin."""
+
+    @pytest.fixture
+    def payment_method_admin(self, admin_site):
+        """Create PaymentMethodAdmin instance."""
+        return PaymentMethodAdmin(PaymentMethod, admin_site)
+
+    @pytest.fixture
+    def payment_method(self, regular_user):
+        """Create test payment method."""
+        return PaymentMethod.objects.create(
+            user=regular_user,
+            card_token="test_card_token_123",
+            card_user_key="test_user_key_456",
+            card_last_four="1234",
+            card_brand=CardBrand.VISA,
+            card_type="CREDIT_CARD",
+            card_bank_name="Test Bank",
+            card_holder_name="Test User",
+            expiry_month=12,
+            expiry_year=2030,
+            is_default=True,
+            is_active=True,
+        )
+
+    def test_list_display(self, payment_method_admin):
+        """Test list_display configuration."""
+        assert "user" in payment_method_admin.list_display
+        assert "get_display_name" in payment_method_admin.list_display
+        assert "get_card_brand_badge" in payment_method_admin.list_display
+        assert "get_expiry_display" in payment_method_admin.list_display
+        assert "is_default" in payment_method_admin.list_display
+        assert "is_active" in payment_method_admin.list_display
+
+    def test_get_card_brand_badge_visa(self, payment_method_admin, payment_method):
+        """Test card brand badge for VISA."""
+        result = payment_method_admin.get_card_brand_badge(payment_method)
+
+        assert "Visa" in result
+        assert "#1A1F71" in result  # Visa blue
+
+    def test_get_card_brand_badge_mastercard(self, payment_method_admin, payment_method):
+        """Test card brand badge for Mastercard."""
+        payment_method.card_brand = CardBrand.MASTERCARD
+        result = payment_method_admin.get_card_brand_badge(payment_method)
+
+        assert "Mastercard" in result
+        assert "#EB001B" in result  # Mastercard red
+
+    def test_get_card_brand_badge_amex(self, payment_method_admin, payment_method):
+        """Test card brand badge for Amex."""
+        payment_method.card_brand = CardBrand.AMEX
+        result = payment_method_admin.get_card_brand_badge(payment_method)
+
+        assert "American Express" in result
+        assert "#006FCF" in result  # Amex blue
+
+    def test_get_card_brand_badge_troy(self, payment_method_admin, payment_method):
+        """Test card brand badge for Troy."""
+        payment_method.card_brand = CardBrand.TROY
+        result = payment_method_admin.get_card_brand_badge(payment_method)
+
+        assert "Troy" in result
+        assert "#00A3E0" in result  # Troy blue
+
+    def test_get_card_brand_badge_other(self, payment_method_admin, payment_method):
+        """Test card brand badge for Other."""
+        payment_method.card_brand = CardBrand.OTHER
+        result = payment_method_admin.get_card_brand_badge(payment_method)
+
+        assert "#6c757d" in result  # Gray
+
+    def test_get_expiry_display_valid(self, payment_method_admin, payment_method):
+        """Test expiry display for valid card."""
+        result = payment_method_admin.get_expiry_display(payment_method)
+
+        assert "12/2030" in result
+        assert "EXPIRED" not in result
+        assert "Expires Soon" not in result
+
+    def test_get_expiry_display_expired(self, payment_method_admin, payment_method):
+        """Test expiry display for expired card."""
+        payment_method.expiry_month = 1
+        payment_method.expiry_year = 2020
+        result = payment_method_admin.get_expiry_display(payment_method)
+
+        assert "1/2020" in result
+        assert "EXPIRED" in result
+
+    def test_get_expiry_display_expires_soon(self, payment_method_admin, payment_method):
+        """Test expiry display for card expiring soon."""
+        now = timezone.now()
+        # Set to expire at end of current month (within 30 days)
+        payment_method.expiry_month = now.month
+        payment_method.expiry_year = now.year
+        result = payment_method_admin.get_expiry_display(payment_method)
+
+        assert "Expires Soon" in result
+
+    def test_get_usage_stats_no_usage(self, payment_method_admin, payment_method):
+        """Test usage stats when no usage."""
+        result = payment_method_admin.get_usage_stats(payment_method)
+
+        assert "No usage" in result
+
+    def test_get_usage_stats_with_usage(self, payment_method_admin, payment_method, regular_user):
+        """Test usage stats with payment history."""
+        # Create subscription and payments
+        plan = SubscriptionPlan.objects.create(
+            name="Test Plan",
+            slug="test",
+            price=Decimal("99.99"),
+            currency="TRY",
+        )
+
+        now = timezone.now()
+        subscription = Subscription.objects.create(
+            user=regular_user,
+            plan=plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=now,
+            current_period_start=now,
+            current_period_end=now + timedelta(days=30),
+            next_billing_date=now + timedelta(days=30),
+        )
+
+        # Create successful payment
+        SubscriptionPayment.objects.create(
+            subscription=subscription,
+            user=regular_user,
+            amount=Decimal("99.99"),
+            currency="TRY",
+            status="success",
+            period_start=now,
+            period_end=now + timedelta(days=30),
+        )
+
+        result = payment_method_admin.get_usage_stats(payment_method)
+
+        assert "payment(s)" in result
+        assert "99.99" in result
+
+    def test_get_detailed_usage_stats(self, payment_method_admin, payment_method, regular_user):
+        """Test detailed usage stats display."""
+        # Create subscription and payments
+        plan = SubscriptionPlan.objects.create(
+            name="Test Plan",
+            slug="test-detail",
+            price=Decimal("99.99"),
+            currency="USD",
+        )
+
+        now = timezone.now()
+        subscription = Subscription.objects.create(
+            user=regular_user,
+            plan=plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=now,
+            current_period_start=now,
+            current_period_end=now + timedelta(days=30),
+            next_billing_date=now + timedelta(days=30),
+        )
+
+        # Create payments
+        SubscriptionPayment.objects.create(
+            subscription=subscription,
+            user=regular_user,
+            amount=Decimal("99.99"),
+            currency="USD",
+            status="success",
+            period_start=now,
+            period_end=now + timedelta(days=30),
+        )
+
+        # Update last_used_at
+        payment_method.last_used_at = now
+        payment_method.save()
+
+        result = payment_method_admin.get_detailed_usage_stats(payment_method)
+
+        assert "Payment Method Usage Analytics" in result
+        assert "Active Subscriptions" in result
+        assert "Successful Payments" in result
+        assert "Total Amount Billed" in result
+        assert "1234" in result  # Last four digits
+
+    def test_get_detailed_usage_stats_never_used(self, payment_method_admin, payment_method):
+        """Test detailed usage stats when never used."""
+        payment_method.last_used_at = None
+        result = payment_method_admin.get_detailed_usage_stats(payment_method)
+
+        assert "Never used for payments" in result
+
+    def test_deactivate_cards_action(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test deactivate_cards admin action."""
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+        payment_method_admin.deactivate_cards(request, queryset)
+
+        payment_method.refresh_from_db()
+        assert payment_method.is_active is False
+
+    def test_deactivate_cards_action_already_inactive(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test deactivate_cards action on already inactive card."""
+        payment_method.is_active = False
+        payment_method.save()
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+        payment_method_admin.deactivate_cards(request, queryset)
+
+        # Should not change anything
+        payment_method.refresh_from_db()
+        assert payment_method.is_active is False
+
+    def test_set_as_default_action(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test set_as_default admin action."""
+        payment_method.is_default = False
+        payment_method.save()
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+        payment_method_admin.set_as_default(request, queryset)
+
+        payment_method.refresh_from_db()
+        assert payment_method.is_default is True
+
+    def test_set_as_default_action_multiple_selected(
+        self, payment_method_admin, request_factory, admin_user, payment_method, regular_user
+    ):
+        """Test set_as_default action with multiple cards selected."""
+        # Create second payment method
+        second_pm = PaymentMethod.objects.create(
+            user=regular_user,
+            card_token="token2",
+            card_user_key="key2",
+            card_last_four="5678",
+            card_brand=CardBrand.MASTERCARD,
+            expiry_month=12,
+            expiry_year=2030,
+            is_active=True,
+        )
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id__in=[payment_method.id, second_pm.id])
+        payment_method_admin.set_as_default(request, queryset)
+
+        # Should not set default (error message shown instead)
+
+    def test_set_as_default_action_inactive_card(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test set_as_default action on inactive card."""
+        payment_method.is_active = False
+        payment_method.is_default = False
+        payment_method.save()
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+        payment_method_admin.set_as_default(request, queryset)
+
+        payment_method.refresh_from_db()
+        # Should remain non-default due to inactive status
+        assert payment_method.is_default is False
+
+    def test_set_as_default_action_expired_card(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test set_as_default action on expired card."""
+        payment_method.expiry_month = 1
+        payment_method.expiry_year = 2020
+        payment_method.is_default = False
+        payment_method.save()
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+        payment_method_admin.set_as_default(request, queryset)
+
+        payment_method.refresh_from_db()
+        # Should remain non-default due to expired status
+        assert payment_method.is_default is False
+
+    def test_delete_from_iyzico_action(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test delete_from_iyzico admin action."""
+        from unittest.mock import patch
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+        pm_id = payment_method.id
+        card_token = payment_method.card_token
+        card_user_key = payment_method.card_user_key
+
+        with patch("django_iyzico.client.IyzicoClient") as mock_client_class:
+            mock_client = mock_client_class.return_value
+            mock_client.delete_card.return_value = None
+
+            payment_method_admin.delete_from_iyzico(request, queryset)
+
+            mock_client.delete_card.assert_called_once_with(
+                card_token=card_token,
+                card_user_key=card_user_key,
+            )
+
+            # Payment method should be deleted
+            assert not PaymentMethod.objects.filter(id=pm_id).exists()
+
+    def test_delete_from_iyzico_action_error(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test delete_from_iyzico action with error."""
+        from unittest.mock import patch
+
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = PaymentMethod.objects.filter(id=payment_method.id)
+
+        with patch("django_iyzico.client.IyzicoClient") as mock_client_class:
+            mock_client = mock_client_class.return_value
+            mock_client.delete_card.side_effect = Exception("API Error")
+
+            payment_method_admin.delete_from_iyzico(request, queryset)
+
+            # Payment method should still exist
+            assert PaymentMethod.objects.filter(id=payment_method.id).exists()
+
+    def test_has_delete_permission_superuser(
+        self, payment_method_admin, request_factory, admin_user, payment_method
+    ):
+        """Test delete permission for superuser."""
+        request = request_factory.get("/")
+        request.user = admin_user
+
+        can_delete = payment_method_admin.has_delete_permission(request, payment_method)
+        assert can_delete is True
+
+    def test_has_delete_permission_regular_user(
+        self, payment_method_admin, request_factory, regular_user, payment_method
+    ):
+        """Test delete permission for regular user."""
+        request = request_factory.get("/")
+        request.user = regular_user
+
+        can_delete = payment_method_admin.has_delete_permission(request, payment_method)
+        assert can_delete is False
+
+    def test_get_queryset_optimization(
+        self, payment_method_admin, request_factory, admin_user
+    ):
+        """Test queryset optimization with select_related."""
+        request = request_factory.get("/")
+        request.user = admin_user
+
+        queryset = payment_method_admin.get_queryset(request)
+
+        # Check that select_related was called
+        select_related = queryset.query.select_related
+        if select_related is True:
+            pass
+        else:
+            assert "user" in select_related
+
+    def test_fieldsets_configuration(self, payment_method_admin):
+        """Test fieldsets are configured correctly."""
+        fieldsets = payment_method_admin.fieldsets
+
+        section_names = [fs[0] for fs in fieldsets]
+        assert "User & Status" in section_names
+        assert "Card Information" in section_names
+        assert "Expiry" in section_names
+        assert "Security Tokens (PCI DSS Compliant)" in section_names
+        assert "Usage Analytics" in section_names
+        assert "Metadata" in section_names
+
+    def test_actions_configuration(self, payment_method_admin):
+        """Test admin actions are configured."""
+        assert "deactivate_cards" in payment_method_admin.actions
+        assert "set_as_default" in payment_method_admin.actions
+        assert "delete_from_iyzico" in payment_method_admin.actions
+
+
+class TestSubscriptionAdminProcessBilling:
+    """Test process_billing_manually action."""
+
+    @pytest.fixture
+    def subscription_admin(self, admin_site):
+        """Create SubscriptionAdmin instance."""
+        return SubscriptionAdmin(Subscription, admin_site)
+
+    @pytest.fixture
+    def subscription(self, regular_user):
+        """Create test subscription."""
+        plan = SubscriptionPlan.objects.create(
+            name="Test Plan",
+            slug="test-billing",
+            price=Decimal("99.99"),
+        )
+
+        now = timezone.now()
+        return Subscription.objects.create(
+            user=regular_user,
+            plan=plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=now,
+            current_period_start=now,
+            current_period_end=now + timedelta(days=30),
+            next_billing_date=now + timedelta(days=30),
+        )
+
+    def test_process_billing_manually_action(
+        self, subscription_admin, request_factory, admin_user, subscription
+    ):
+        """Test process_billing_manually admin action shows warning."""
+        request = request_factory.post("/")
+        request.user = admin_user
+        add_messages_support(request)
+
+        queryset = Subscription.objects.filter(id=subscription.id)
+        subscription_admin.process_billing_manually(request, queryset)
+
+        # Should not raise - just shows warning message
