@@ -281,7 +281,9 @@ class TestModelRefund:
         )
 
         # Process refund with reason
-        response = payment.process_refund(ip_address="85.34.78.112", reason="Customer not satisfied")
+        response = payment.process_refund(
+            ip_address="85.34.78.112", reason="Customer not satisfied"
+        )
 
         assert response.is_successful() is True
 

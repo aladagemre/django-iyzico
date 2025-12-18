@@ -17,10 +17,10 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from .models import AbstractIyzicoPayment
+
 # Django 5.1+ renamed CheckConstraint's 'check' parameter to 'condition'
 CHECKCONSTRAINT_PARAM = "condition" if django.VERSION >= (5, 1) else "check"
-
-from .models import AbstractIyzicoPayment
 
 logger = logging.getLogger(__name__)
 

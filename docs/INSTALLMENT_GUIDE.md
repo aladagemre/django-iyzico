@@ -103,8 +103,8 @@ for bank in options:
 
 ### Requirements
 
-- Python 3.8+
-- Django 3.2+
+- Python 3.11+
+- Django 4.2+ (supports 4.2 LTS, 5.2, 6.0)
 - django-iyzico
 
 ### Install Package

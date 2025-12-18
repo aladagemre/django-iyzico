@@ -196,8 +196,8 @@ Currently, Django developers who want to integrate Iyzico payments must:
 **Business Value:** Reduces long-term maintenance costs
 
 #### NFR-5: Compatibility
-- Python 3.8+
-- Django 3.2+ (LTS support)
+- Python 3.11+
+- Django 4.2+ (supports 4.2 LTS, 5.2, 6.0)
 - Compatible with PostgreSQL, MySQL, SQLite
 
 **Business Value:** Wide user base can adopt the package
@@ -418,7 +418,7 @@ Currently, Django developers who want to integrate Iyzico payments must:
 
 1. Must use official `iyzipay` SDK (not reimplement API)
 2. Must comply with PCI DSS (no full card storage)
-3. Must support Django 3.2+ (LTS versions)
+3. Must support Django 4.2+ (LTS versions and newer)
 4. Limited time for maintenance (2-4 hours/month)
 5. Free/open-source only (no paid tiers initially)
 

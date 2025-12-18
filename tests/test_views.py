@@ -48,7 +48,9 @@ def add_session_to_request(request):
     return request
 
 
-def create_json_post_request(request_factory, url, data, include_signature=True, custom_signature=None):
+def create_json_post_request(
+    request_factory, url, data, include_signature=True, custom_signature=None
+):
     """
     Create a POST request with JSON data.
 
@@ -325,7 +327,10 @@ class TestThreeDSCallbackView:
         # Verify session error data
         assert request.session.get("last_payment_status") == "failed"
         # View stores a generic message for user display, not the raw error
-        assert request.session.get("last_payment_error") == "Payment processing failed. Please try again."
+        assert (
+            request.session.get("last_payment_error")
+            == "Payment processing failed. Please try again."
+        )
         # Error code is the internal code used by the view
         assert request.session.get("last_payment_error_code") == "PAYMENT_FAILED"
         assert request.session.get("last_payment_conversation_id") == "test-conv-123"

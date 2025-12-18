@@ -5,7 +5,7 @@ Tests the MonitoringService class, metrics collection, and logging utilities.
 """
 
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from django.core.cache import cache
@@ -434,7 +434,9 @@ class TestMonitoringService(TestCase):
         """Test that no alert is sent with insufficient samples."""
         # Set up metrics with few attempts
         cache.set(f"{self.service.METRICS_KEY_PREFIX}payment_attempts", 5)
-        cache.set(f"{self.service.METRICS_KEY_PREFIX}payment_failures", 5)  # 100% but only 5 samples
+        cache.set(
+            f"{self.service.METRICS_KEY_PREFIX}payment_failures", 5
+        )  # 100% but only 5 samples
 
         with patch.object(self.service, "_send_alert") as mock_alert:
             self.service._check_failure_rate_alert()

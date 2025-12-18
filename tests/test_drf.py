@@ -447,9 +447,7 @@ class TestIyzicoPaymentManagementViewSet:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_refund_non_refundable_payment(
-        self, viewset_class, factory, admin_user, payment_model
-    ):
+    def test_refund_non_refundable_payment(self, viewset_class, factory, admin_user, payment_model):
         """Test refunding a non-refundable payment."""
         # Create failed payment (cannot be refunded)
         payment = payment_model.objects.create(

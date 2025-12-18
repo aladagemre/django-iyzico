@@ -78,8 +78,8 @@ Recommended Testing Environment:
 
 ```python
 # Required Software
-Python: 3.8+
-Django: 3.2+
+Python: 3.11+
+Django: 4.2+ (supports 4.2 LTS, 5.2, 6.0)
 PostgreSQL: 12+ (recommended for production testing)
 Redis: 6+ (for caching tests)
 
@@ -576,7 +576,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |

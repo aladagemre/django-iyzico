@@ -387,9 +387,7 @@ class TestSubscriptionAdmin:
 
         queryset = Subscription.objects.filter(id=subscription.id)
 
-        with patch(
-            "django_iyzico.subscription_manager.SubscriptionManager"
-        ) as mock_manager_class:
+        with patch("django_iyzico.subscription_manager.SubscriptionManager") as mock_manager_class:
             mock_manager = mock_manager_class.return_value
 
             subscription_admin.cancel_subscriptions(request, queryset)
@@ -922,9 +920,7 @@ class TestPaymentMethodAdmin:
         can_delete = payment_method_admin.has_delete_permission(request, payment_method)
         assert can_delete is False
 
-    def test_get_queryset_optimization(
-        self, payment_method_admin, request_factory, admin_user
-    ):
+    def test_get_queryset_optimization(self, payment_method_admin, request_factory, admin_user):
         """Test queryset optimization with select_related."""
         request = request_factory.get("/")
         request.user = admin_user

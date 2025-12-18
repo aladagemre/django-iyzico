@@ -742,9 +742,7 @@ class TestRegisterCard:
             "identityNumber": "11111111111",
         }
 
-    def test_successful_card_registration(
-        self, mock_card_class, sample_card_info, sample_buyer
-    ):
+    def test_successful_card_registration(self, mock_card_class, sample_card_info, sample_buyer):
         """Test successful card registration."""
         mock_instance = Mock()
         mock_response_data = {
@@ -812,9 +810,7 @@ class TestRegisterCard:
 
         assert "Invalid card number" in str(exc_info.value)
 
-    def test_card_registration_sdk_exception(
-        self, mock_card_class, sample_card_info, sample_buyer
-    ):
+    def test_card_registration_sdk_exception(self, mock_card_class, sample_card_info, sample_buyer):
         """Test SDK exception during registration raises CardError."""
         mock_instance = Mock()
         mock_instance.create.side_effect = Exception("SDK error")

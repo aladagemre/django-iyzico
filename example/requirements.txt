@@ -1,5 +1,5 @@
 # Django and core dependencies
-Django>=3.2,<6.0
+Django>=4.2,<7.0
 python-decouple>=3.6
 
 # django-iyzico (install from local or PyPI)

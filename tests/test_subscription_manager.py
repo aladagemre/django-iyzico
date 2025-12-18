@@ -208,7 +208,9 @@ class TestSubscriptionManagerCreate:
 
         with patch.object(manager, "_get_buyer_info", return_value=mock_buyer_info):
             with patch.object(manager, "_store_payment_method"):
-                with patch.object(manager, "_create_subscription_payment", return_value=mock_payment):
+                with patch.object(
+                    manager, "_create_subscription_payment", return_value=mock_payment
+                ):
                     subscription = manager.create_subscription(
                         user=user,
                         plan=plan,
@@ -1000,7 +1002,12 @@ class TestSubscriptionManagerTokenPayment:
 
     @patch("django_iyzico.subscription_manager.IyzicoClient")
     def test_create_payment_with_token(
-        self, mock_client_class, subscription, token_payment_method, mock_buyer_info, mock_address_info
+        self,
+        mock_client_class,
+        subscription,
+        token_payment_method,
+        mock_buyer_info,
+        mock_address_info,
     ):
         """Test payment creation with stored card token."""
         mock_response = Mock()
@@ -1244,7 +1251,9 @@ class TestSubscriptionManagerBuyerInfo:
         with pytest.raises(IyzicoValidationException) as exc_info:
             manager._get_buyer_info(user)
 
-        assert "email" in str(exc_info.value).lower() or "MISSING_REQUIRED_FIELD" in str(exc_info.value)
+        assert "email" in str(exc_info.value).lower() or "MISSING_REQUIRED_FIELD" in str(
+            exc_info.value
+        )
 
     def test_get_buyer_info_invalid_identity_number(self, user):
         """Test buyer info fails with invalid identity number."""
@@ -1258,7 +1267,10 @@ class TestSubscriptionManagerBuyerInfo:
         with pytest.raises(IyzicoValidationException) as exc_info:
             manager._get_buyer_info(user)
 
-        assert "INVALID_IDENTITY_NUMBER" in str(exc_info.value) or "identity" in str(exc_info.value).lower()
+        assert (
+            "INVALID_IDENTITY_NUMBER" in str(exc_info.value)
+            or "identity" in str(exc_info.value).lower()
+        )
 
     def test_get_buyer_info_missing_address(self, user):
         """Test buyer info fails with missing address."""

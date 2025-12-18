@@ -173,7 +173,6 @@ class TestInstallmentClientValidation:
         """Test that valid amounts work in get_installment_info."""
         # The amount validation happens inside get_installment_info
         # We test indirectly by ensuring valid amounts don't raise on the check
-        client = InstallmentClient()
         # Valid amounts should pass (validation happens during API call)
         assert Decimal("100.00") > Decimal("0")
         assert Decimal("0.01") > Decimal("0")
@@ -353,9 +352,15 @@ class TestInstallmentClientBestOptions:
                     bank_name="Akbank",
                     bank_code=62,
                     installment_options=[
-                        InstallmentOption(1, Decimal("100"), Decimal("100"), Decimal("100"), Decimal("0")),
-                        InstallmentOption(3, Decimal("100"), Decimal("100"), Decimal("33.33"), Decimal("0")),
-                        InstallmentOption(6, Decimal("100"), Decimal("105"), Decimal("17.50"), Decimal("5")),
+                        InstallmentOption(
+                            1, Decimal("100"), Decimal("100"), Decimal("100"), Decimal("0")
+                        ),
+                        InstallmentOption(
+                            3, Decimal("100"), Decimal("100"), Decimal("33.33"), Decimal("0")
+                        ),
+                        InstallmentOption(
+                            6, Decimal("100"), Decimal("105"), Decimal("17.50"), Decimal("5")
+                        ),
                     ],
                 )
             ]
@@ -376,7 +381,9 @@ class TestInstallmentClientBestOptions:
                     bank_name="Akbank",
                     bank_code=62,
                     installment_options=[
-                        InstallmentOption(i, Decimal("100"), Decimal("100"), Decimal(str(100 / i)), Decimal("0"))
+                        InstallmentOption(
+                            i, Decimal("100"), Decimal("100"), Decimal(str(100 / i)), Decimal("0")
+                        )
                         for i in range(1, 13)
                     ],
                 ),
@@ -399,7 +406,9 @@ class TestInstallmentClientValidation2:
                     bank_name="Akbank",
                     bank_code=62,
                     installment_options=[
-                        InstallmentOption(3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3")),
+                        InstallmentOption(
+                            3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3")
+                        ),
                     ],
                 ),
             ]
@@ -418,7 +427,9 @@ class TestInstallmentClientValidation2:
                     bank_name="Akbank",
                     bank_code=62,
                     installment_options=[
-                        InstallmentOption(3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3")),
+                        InstallmentOption(
+                            3, Decimal("100"), Decimal("103"), Decimal("34.33"), Decimal("3")
+                        ),
                     ],
                 ),
             ]

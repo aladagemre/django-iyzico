@@ -661,9 +661,7 @@ class TestSanitizeCSVField:
 class TestRefundPaymentEdgeCases:
     """Test edge cases for refund_payment action."""
 
-    def test_refund_payment_exception_handling(
-        self, payment_admin, admin_request, sample_payment
-    ):
+    def test_refund_payment_exception_handling(self, payment_admin, admin_request, sample_payment):
         """Test refund action handles exceptions gracefully."""
         queryset = TestPayment.objects.filter(id=sample_payment.id)
 
@@ -696,9 +694,7 @@ class TestAmountDisplayEdgeCases:
             # Should still return something sensible via fallback
             assert "100" in str(display)
 
-    def test_amount_display_with_different_amounts_fallback(
-        self, payment_admin, sample_payment
-    ):
+    def test_amount_display_with_different_amounts_fallback(self, payment_admin, sample_payment):
         """Test amount display fallback with different paid amount."""
         sample_payment.amount = Decimal("100.00")
         sample_payment.paid_amount = Decimal("110.00")

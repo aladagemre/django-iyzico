@@ -200,8 +200,8 @@ The django-iyzico package has successfully completed its initial development pha
 - Zero known critical bugs
 
 **Compatibility:**
-- Python: 3.8 - 3.13 (6 versions)
-- Django: 3.2 - 5.0 (5 versions)
+- Python: 3.11 - 3.12 (2 versions)
+- Django: 4.2 - 6.0 (3 versions: 4.2 LTS, 5.2, 6.0)
 - Databases: PostgreSQL, MySQL, SQLite
 
 ### What's Planned for Future
