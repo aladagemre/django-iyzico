@@ -42,7 +42,7 @@ pip install django-iyzico
 ```
 
 ### Requirements
-- Python 3.11+
+- Python 3.12+
 - Django 4.2+ (supports 4.2 LTS, 5.2, 6.0)
 - iyzipay >= 1.0.45
 

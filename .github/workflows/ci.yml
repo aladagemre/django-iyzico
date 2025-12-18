@@ -22,8 +22,7 @@ jobs:
   ci:
     uses: aladagemre/devops/.github/workflows/python-package-ci.yml@main
     with:
-      # Test across multiple Python versions (3.11-3.12)
-      python-versions: '["3.11", "3.12"]'
+      python-versions: '["3.12"]'
 
       # Test across multiple Django versions (4.2 LTS, 5.2, 6.0)
       django-versions: '["4.2", "5.2", "6.0"]'

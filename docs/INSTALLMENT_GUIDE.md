@@ -103,7 +103,7 @@ for bank in options:
 
 ### Requirements
 
-- Python 3.11+
+- Python 3.12+
 - Django 4.2+ (supports 4.2 LTS, 5.2, 6.0)
 - django-iyzico
 

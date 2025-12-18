@@ -129,7 +129,7 @@ def on_payment_success(sender, instance, **kwargs):
 | **Source Dist Size** | 49 KB |
 | **Dependencies** | 2 required (Django, iyzipay) |
 | **Optional Dependencies** | DRF for API support |
-| **Python Versions** | 3.11 - 3.12 (2 versions) |
+| **Python Versions** | 3.12 |
 | **Django Versions** | 4.2 - 6.0 (3 versions: 4.2 LTS, 5.2, 6.0) |
 
 ### Documentation
