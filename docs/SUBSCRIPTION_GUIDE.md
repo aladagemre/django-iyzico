@@ -804,5 +804,5 @@ subscription = manager.create_subscription(
 ---
 
 **Version:** 0.2.0
-**Last Updated:** December 17, 2025
+**Last Updated:** December 18, 2025
 **License:** MIT

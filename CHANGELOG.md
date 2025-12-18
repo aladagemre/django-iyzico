@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2025-12-17
+## [0.2.0] - 2025-12-18
 
 ### Added
 
@@ -163,6 +163,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Tests**: 100+ tests with 98% coverage
 
+#### Monitoring & Observability (Milestone 5)
+- **Monitoring Module** (564 lines)
+  - `MonitoringService` class for centralized monitoring
+  - Structured event logging (payment_logger, billing_logger, security_logger)
+  - `PaymentMetrics` dataclass for metrics collection
+  - Double billing detection and prevention
+  - High failure rate alerting with configurable thresholds
+  - Timing decorator for performance measurement
+
+- **Monitoring Signals**
+  - 3 new alerting signals:
+    - `payment_alert` - General payment system alerts
+    - `double_billing_prevented` - Prevented duplicate charges
+    - `high_failure_rate_detected` - Payment failure rate threshold exceeded
+
+- **Configuration Options**
+  - `IYZICO_MONITORING` settings dictionary
+  - Configurable metrics backend (statsd, prometheus, datadog)
+  - Adjustable failure rate threshold (default 5%)
+  - Toggle for sensitive error logging
+
+#### Developer Experience
+- **CI/CD Workflows**
+  - `ci.yml` - Automated testing on push/PR
+  - `publish.yml` - Automated PyPI publishing
+  - Matrix testing for Python 3.8-3.13 and Django 3.2-5.0
+
+- **DevContainer Support**
+  - `Dockerfile` with development dependencies
+  - `devcontainer.json` for VS Code integration
+  - `init-firewall.sh` for container security
+
+- **Example Project**
+  - Complete Django e-commerce example
+  - Models: Product, Order, OrderItem
+  - Regular views and DRF API endpoints
+  - Signal handlers for all payment events
+  - Admin integration with IyzicoPaymentAdminMixin
+  - 3D Secure flow examples
+  - Webhook integration examples
+
 ### Changed
 - Admin amount display now shows currency symbols by default
 - Model `get_amount_display()` method enhanced with currency formatting
@@ -181,10 +222,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `DEVELOPMENT_ROADMAP.md` with completion status
 
 ### Technical Details
-- **Total Lines Added**: ~9,500 lines (production code + tests)
-- **Total Tests Added**: 495+ tests
+- **Production Code**: ~12,000 lines in django_iyzico package
+- **Test Code**: ~12,000 lines across 22 test files
+- **Total Test Methods**: 662+
 - **Test Coverage**: 95%+ maintained across all modules
 - **Backwards Compatibility**: 100% - all changes are additive
+- **Total Signals**: 20 (8 payment + 9 subscription + 3 monitoring)
 - **Python Support**: 3.8 - 3.13
 - **Django Support**: 3.2 - 5.0
 
@@ -322,14 +365,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v0.2.0
-- Subscription payment support
-- Installment payment support
-- Multi-currency support beyond TRY
+### Planned for v0.3.0
 - Payment method tokenization
-- Split payment support
-- Marketplace payment support
+- Split payment support for marketplaces
 - Additional payment methods (bank transfer, etc.)
+- Enhanced reporting and analytics
+- Webhook retry mechanism
+- Payment link generation
 
 ---
 
