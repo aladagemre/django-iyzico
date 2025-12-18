@@ -1,0 +1,16 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>aladagemre/devops//renovate/base",
+    "github>aladagemre/devops//renovate/python-package"
+  ],
+  "packageRules": [
+    {
+      "description": "Pin iyzipay package - critical dependency",
+      "matchPackageNames": ["iyzipay"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major-update", "iyzipay", "needs-testing"]
+    }
+  ]
+}

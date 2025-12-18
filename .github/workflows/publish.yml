@@ -1,0 +1,21 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      test-pypi:
+        description: 'Publish to Test PyPI instead of production'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    uses: aladagemre/devops/.github/workflows/python-package-publish.yml@main
+    with:
+      test-pypi: ${{ github.event_name == 'workflow_dispatch' && inputs.test-pypi || false }}
+      skip-existing: true
+    secrets:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
