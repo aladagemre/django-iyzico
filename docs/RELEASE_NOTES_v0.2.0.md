@@ -1,7 +1,7 @@
 # Release Notes: django-iyzico v0.2.0
 
-**Release Date:** December 17, 2025
-**Status:** Production-Ready
+**Release Date:** December 18, 2025
+**Status:** ✅ Released
 **Type:** Major Feature Release
 
 ---
@@ -14,7 +14,13 @@ We're excited to announce the release of **django-iyzico v0.2.0**, a major updat
 - **Installment Payments** - Complete installment support with BIN-based options
 - **Multi-Currency Support** - Process payments in TRY, USD, EUR, and GBP
 
-This release represents **3 months of development**, adds **~9,500 lines of production code**, includes **495+ comprehensive tests**, and maintains our commitment to **95%+ test coverage**.
+This release adds **~12,000 lines of production code**, includes **662+ comprehensive tests** across 22 test files, and maintains our commitment to **95%+ test coverage**.
+
+**Additional v0.2.0 Features:**
+- **Monitoring Module** - Structured logging, metrics, and alerting
+- **CI/CD Workflows** - GitHub Actions for automated testing and publishing
+- **DevContainer Support** - VS Code development environment
+- **Complete Example Project** - Full Django e-commerce application
 
 ---
 
@@ -192,11 +198,11 @@ name = payment.get_currency_name()  # "US Dollar"
 
 | Metric | v0.1.0-beta | v0.2.0 | Change |
 |--------|-------------|--------|--------|
-| Production Lines | ~6,000 | ~15,500 | +158% |
-| Test Lines | ~3,500 | ~6,500 | +86% |
-| Total Tests | 312 | 495+ | +59% |
+| Production Lines | ~6,000 | ~12,000 | +100% |
+| Test Lines | ~3,500 | ~12,000 | +243% |
+| Total Tests | 312 | 662+ | +112% |
 | Test Coverage | 95% | 95%+ | Maintained |
-| Signals | 8 | 17 | +113% |
+| Signals | 8 | 20 | +150% |
 | Admin Classes | 1 | 4 | +300% |
 | Models | 1 | 4 | +300% |
 | Documentation Files | 12 | 21 | +75% |
@@ -334,5 +340,5 @@ For a complete list of all changes, see [CHANGELOG.md](../CHANGELOG.md).
 ---
 
 **Version:** 0.2.0
-**Release Date:** December 17, 2025
+**Release Date:** December 18, 2025
 **Author:** Emre Aladag ([@aladagemre](https://github.com/aladagemre))

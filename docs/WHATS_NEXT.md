@@ -1,8 +1,8 @@
 # What's Next - django-iyzico Publication Guide
 
 **Current Status:** ✅ Package fully prepared and ready for publication
-**Version:** 0.1.0b1
-**Date:** December 17, 2025
+**Version:** 0.2.0
+**Date:** December 18, 2025
 
 ---
 
@@ -546,6 +546,6 @@ The Django community will love having a well-built, secure Iyzico integration!
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** December 17, 2025
+**Document Version:** 2.0
+**Last Updated:** December 18, 2025
 **Status:** Ready for action!

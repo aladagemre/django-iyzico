@@ -5,7 +5,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Django Version](https://img.shields.io/badge/django-3.2%2B-green.svg)](https://www.djangoproject.com/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-495%2B%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-662%2B%20passing-brightgreen.svg)](#testing)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](#testing)
 [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
 
@@ -24,11 +24,12 @@
 - ✅ **Refund Processing** - Full and partial refunds
 - ✅ **Django Admin** - Professional interface with color-coded statuses
 - ✅ **Webhook Handling** - Real-time payment status updates
-- ✅ **Signal System** - Event-driven architecture (17 signals)
+- ✅ **Signal System** - Event-driven architecture (20 signals)
 - ✅ **Celery Integration** - Automated subscription billing and task processing
 - ✅ **Management Commands** - Sync and cleanup utilities
 - ✅ **Type Hints** - Full type coverage for IDE support
-- ✅ **Well Tested** - 495+ tests, 95%+ coverage across all modules
+- ✅ **Well Tested** - 662+ tests, 95%+ coverage across all modules
+- ✅ **Monitoring** - Structured logging, metrics, and alerting
 
 ### Optional Features
 - 🔌 **Django REST Framework** - Optional API support
@@ -277,7 +278,7 @@ class OrderAdmin(IyzicoPaymentAdminMixin, admin.ModelAdmin):
 
 ## 📡 Signal Handling
 
-django-iyzico provides 17 signals for payment and subscription lifecycle events:
+django-iyzico provides 20 signals for payment, subscription, and monitoring events:
 
 ### Payment Signals (8 signals)
 
@@ -337,6 +338,30 @@ def on_subscription_payment_failed(sender, subscription, payment, **kwargs):
 
     # Log for retry
     logger.warning(f"Subscription {subscription.id} payment failed")
+```
+
+### Monitoring Signals (3 signals - v0.2.0+)
+
+```python
+from django_iyzico.signals import (
+    payment_alert, double_billing_prevented, high_failure_rate_detected
+)
+
+@receiver(payment_alert)
+def on_payment_alert(sender, alert_type, message, severity, **kwargs):
+    """Handle payment system alerts."""
+    if severity == 'critical':
+        notify_ops_team(alert_type, message)
+
+@receiver(double_billing_prevented)
+def on_double_billing_prevented(sender, subscription_id, **kwargs):
+    """Log prevented double billing attempts."""
+    logger.info(f"Double billing prevented for subscription {subscription_id}")
+
+@receiver(high_failure_rate_detected)
+def on_high_failure_rate(sender, failure_rate, threshold, **kwargs):
+    """Alert on high payment failure rates."""
+    alert_ops(f"Payment failure rate {failure_rate:.1%} exceeds threshold {threshold:.1%}")
 ```
 
 ## 🔄 Webhook Handling
@@ -480,9 +505,10 @@ pytest tests/test_client.py -v
 ```
 
 **Test Statistics:**
-- **495+ total tests**
+- **662+ test methods** across 22 test files
 - **95%+ coverage** across all modules
-- **Comprehensive test suites** for payments, subscriptions, installments, and currency
+- **~12,000 lines** of test code
+- **Comprehensive test suites** for payments, subscriptions, installments, currency, and monitoring
 - **83+ security-critical tests**
 
 ## 🔧 Troubleshooting
@@ -804,7 +830,7 @@ mypy django_iyzico
 | **Milestone 2** | ✅ Complete | Subscription payments with Celery |
 | **Milestone 3** | ✅ Complete | Installment payments |
 | **Milestone 4** | ✅ Complete | Multi-currency support |
-| **Milestone 5** | 🚀 In Progress | v0.2.0 Release preparation |
+| **Milestone 5** | ✅ Complete | v0.2.0 Release with monitoring & CI/CD |
 
 ## 🗺️ Roadmap
 
@@ -817,15 +843,17 @@ mypy django_iyzico
 - ✅ 95% test coverage
 - ✅ PCI DSS compliance
 
-### v0.2.0 (Current - December 2025)
+### v0.2.0 (Released - December 2025)
 - ✅ **Subscription payments** - Recurring billing with automated lifecycle
 - ✅ **Installment support** - BIN-based installment options and processing
 - ✅ **Multi-currency support** - TRY, USD, EUR, GBP with conversion
 - ✅ **Celery integration** - Automated subscription billing tasks
-- ✅ **17 lifecycle signals** - Payment and subscription events
-- ✅ **495+ comprehensive tests** - 95%+ coverage maintained
-- ✅ **3 detailed guides** - Subscription, Installment, Currency documentation
-- 🔄 Release preparation in progress
+- ✅ **Monitoring module** - Structured logging, metrics, and alerting
+- ✅ **20 lifecycle signals** - Payment, subscription, and monitoring events
+- ✅ **662+ comprehensive tests** - 95%+ coverage maintained
+- ✅ **CI/CD workflows** - GitHub Actions for testing and publishing
+- ✅ **DevContainer support** - VS Code development environment
+- ✅ **Complete example project** - Full Django app with all features
 
 ### v0.3.0 (Planned)
 - [ ] Payment tokenization
@@ -855,6 +883,6 @@ If django-iyzico helps your project, please give it a star on GitHub!
 ---
 
 **Author:** Emre Aladag ([@aladagemre](https://github.com/aladagemre))
-**Version:** 0.2.0 (Release Preparation)
-**Status:** 🚀 Production-Ready
-**Last Updated:** December 17, 2025
+**Version:** 0.2.0
+**Status:** ✅ Production-Ready
+**Last Updated:** December 18, 2025
