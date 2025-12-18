@@ -5,10 +5,11 @@ Provides a comprehensive admin interface for payment management and monitoring.
 """
 
 import csv
+import logging
 from typing import Any, List, Optional
 
 from django.contrib import admin
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
@@ -16,6 +17,8 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from .models import PaymentStatus
+
+logger = logging.getLogger(__name__)
 
 
 class IyzicoPaymentAdminMixin:
@@ -49,6 +52,7 @@ class IyzicoPaymentAdminMixin:
         'payment_id',
         'get_status_badge',
         'get_amount_display_admin',
+        'get_installment_display_admin',  # Added in v0.2.0
         'buyer_email',
         'get_buyer_name',
         'get_card_display_admin',
@@ -62,6 +66,7 @@ class IyzicoPaymentAdminMixin:
         'currency',
         'card_association',
         'card_type',
+        'installment',  # Added in v0.2.0
     ]
 
     # Search fields
@@ -88,6 +93,11 @@ class IyzicoPaymentAdminMixin:
         'card_bank_name',
         'card_bank_code',
         'installment',
+        'installment_rate',  # Added in v0.2.0
+        'monthly_installment_amount',  # Added in v0.2.0
+        'total_with_installment',  # Added in v0.2.0
+        'bin_number',  # Added in v0.2.0
+        'get_installment_details_admin',  # Added in v0.2.0
         'buyer_email',
         'buyer_name',
         'buyer_surname',
@@ -131,6 +141,19 @@ class IyzicoPaymentAdminMixin:
                     'currency',
                     'installment',
                 )
+            }
+        ),
+        (
+            _('Installment Details'),  # Added in v0.2.0
+            {
+                'fields': (
+                    'installment_rate',
+                    'monthly_installment_amount',
+                    'total_with_installment',
+                    'bin_number',
+                    'get_installment_details_admin',
+                ),
+                'classes': ('collapse',),
             }
         ),
         (
@@ -220,14 +243,34 @@ class IyzicoPaymentAdminMixin:
 
     def get_amount_display_admin(self, obj: Any) -> str:
         """
-        Display formatted amount with currency.
+        Display formatted amount with currency symbol and code.
 
         Args:
             obj: Payment instance
 
         Returns:
-            Formatted amount string
+            Formatted amount string with currency symbol
         """
+        # Try to get formatted amount with symbol
+        try:
+            if hasattr(obj, 'get_formatted_amount'):
+                formatted = obj.get_formatted_amount(show_symbol=True, show_code=False)
+
+                # Show paid amount if different
+                if obj.paid_amount and obj.paid_amount != obj.amount:
+                    paid_formatted = obj.get_formatted_paid_amount(show_symbol=True, show_code=False)
+                    return format_html(
+                        '{} <span style="color: #666;">(paid: {})</span>',
+                        formatted,
+                        paid_formatted
+                    )
+
+                return formatted
+        except Exception:
+            # Fallback to simple display
+            pass
+
+        # Fallback display without symbol
         if obj.paid_amount and obj.paid_amount != obj.amount:
             return format_html(
                 '{} {} <span style="color: #666;">(paid: {} {})</span>',
@@ -270,6 +313,182 @@ class IyzicoPaymentAdminMixin:
         return obj.get_card_display() or '-'
 
     get_card_display_admin.short_description = _('Card')
+
+    def get_installment_display_admin(self, obj: Any) -> str:
+        """
+        Display installment information in list view.
+
+        Args:
+            obj: Payment instance
+
+        Returns:
+            Formatted installment display string
+        """
+        if not hasattr(obj, 'has_installment') or not obj.has_installment():
+            return '-'
+
+        # Use the model's get_installment_display method if available
+        if hasattr(obj, 'get_installment_display'):
+            display = obj.get_installment_display()
+
+            # Add badge for zero-interest installments
+            if hasattr(obj, 'installment_rate') and obj.installment_rate == 0:
+                return format_html(
+                    '{} <span style="background-color: #28a745; color: white; '
+                    'padding: 2px 6px; border-radius: 3px; font-size: 10px;">0% Interest</span>',
+                    display
+                )
+
+            return display
+
+        # Fallback if method not available
+        if hasattr(obj, 'installment') and obj.installment > 1:
+            return f"{obj.installment}x installments"
+
+        return '-'
+
+    get_installment_display_admin.short_description = _('Installment')
+    get_installment_display_admin.admin_order_field = 'installment'
+
+    def get_installment_details_admin(self, obj: Any) -> str:
+        """
+        Display detailed installment information in detail view.
+
+        Args:
+            obj: Payment instance
+
+        Returns:
+            HTML formatted installment details
+        """
+        if not hasattr(obj, 'has_installment') or not obj.has_installment():
+            return mark_safe('<p style="color: #666;">No installment applied - single payment</p>')
+
+        # Get installment details if method is available
+        if hasattr(obj, 'get_installment_details'):
+            details = obj.get_installment_details()
+        else:
+            # Build details from available fields
+            details = {}
+            if hasattr(obj, 'installment'):
+                details['installment_count'] = obj.installment
+            if hasattr(obj, 'installment_rate'):
+                details['installment_rate'] = obj.installment_rate
+            if hasattr(obj, 'monthly_installment_amount'):
+                details['monthly_payment'] = obj.monthly_installment_amount
+            if hasattr(obj, 'total_with_installment'):
+                details['total_with_fees'] = obj.total_with_installment
+            if hasattr(obj, 'amount'):
+                details['base_amount'] = obj.amount
+
+        if not details:
+            return mark_safe('<p style="color: #666;">Installment details not available</p>')
+
+        # Build HTML table
+        html = '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">'
+        html += '<tr style="background: #f5f5f5;">'
+        html += '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Detail</th>'
+        html += '<th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Value</th>'
+        html += '</tr>'
+
+        # Add rows for each detail
+        if 'installment_count' in details:
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Installment Count</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;">{details["installment_count"]}x</td>'
+            html += '</tr>'
+
+        if 'base_amount' in details:
+            currency = obj.currency if hasattr(obj, 'currency') else 'TRY'
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd;">Base Amount</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;">{details["base_amount"]} {currency}</td>'
+            html += '</tr>'
+
+        if 'monthly_payment' in details:
+            currency = obj.currency if hasattr(obj, 'currency') else 'TRY'
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Monthly Payment</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd; font-size: 14px; font-weight: bold;">{details["monthly_payment"]} {currency}</td>'
+            html += '</tr>'
+
+        if 'installment_rate' in details:
+            rate = details['installment_rate']
+            is_zero = rate == 0
+            color = '#28a745' if is_zero else '#dc3545'
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd;">Installment Rate</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd; color: {color}; font-weight: bold;">{rate}%'
+            if is_zero:
+                html += ' (Zero Interest)'
+            html += '</td>'
+            html += '</tr>'
+
+        if 'total_fee' in details:
+            currency = obj.currency if hasattr(obj, 'currency') else 'TRY'
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd;">Total Fee</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;">{details["total_fee"]} {currency}</td>'
+            html += '</tr>'
+
+        if 'total_with_fees' in details:
+            currency = obj.currency if hasattr(obj, 'currency') else 'TRY'
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Total with Fees</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{details["total_with_fees"]} {currency}</td>'
+            html += '</tr>'
+
+        if hasattr(obj, 'bin_number') and obj.bin_number:
+            html += '<tr>'
+            html += '<td style="padding: 8px; border: 1px solid #ddd;">Card BIN</td>'
+            html += f'<td style="padding: 8px; border: 1px solid #ddd;">{obj.bin_number}</td>'
+            html += '</tr>'
+
+        html += '</table>'
+
+        # Add calculation note if there's a fee
+        if details.get('installment_rate', 0) > 0:
+            base = details.get('base_amount', 0)
+            total = details.get('total_with_fees', 0)
+            if base and total:
+                fee_amount = total - base
+                html += f'<p style="margin-top: 10px; color: #666; font-size: 12px;">'
+                html += f'<em>Customer pays {fee_amount} {currency} more due to installment fees</em>'
+                html += '</p>'
+
+        return mark_safe(html)
+
+    get_installment_details_admin.short_description = _('Installment Details')
+
+    def get_currency_display_admin(self, obj: Any) -> str:
+        """
+        Display currency with symbol and name.
+
+        Args:
+            obj: Payment instance
+
+        Returns:
+            HTML formatted currency display
+        """
+        try:
+            if hasattr(obj, 'get_currency_symbol') and hasattr(obj, 'get_currency_name'):
+                symbol = obj.get_currency_symbol()
+                name = obj.get_currency_name()
+                code = obj.currency
+
+                return format_html(
+                    '<span style="font-size: 16px;">{}</span> <strong>{}</strong> <span style="color: #666;">({}</span>)',
+                    symbol,
+                    code,
+                    name
+                )
+        except Exception:
+            # Fallback to simple display
+            pass
+
+        return obj.currency
+
+    get_currency_display_admin.short_description = _('Currency')
+    get_currency_display_admin.admin_order_field = 'currency'
 
     def get_raw_response_display(self, obj: Any) -> str:
         """
@@ -503,3 +722,930 @@ class IyzicoPaymentAdminMixin:
         # For now, the base queryset is sufficient
 
         return qs
+
+
+# Subscription Admin Classes
+try:
+    from .subscription_models import (
+        PaymentMethod,
+        CardBrand,
+        SubscriptionPlan,
+        Subscription,
+        SubscriptionPayment,
+        SubscriptionStatus,
+    )
+
+    @admin.register(PaymentMethod)
+    class PaymentMethodAdmin(admin.ModelAdmin):
+        """
+        Admin interface for payment methods (stored cards).
+
+        Features:
+        - View stored payment methods
+        - Search by user, card details
+        - Filter by card brand, active status
+        - Security: NEVER displays full card numbers
+        - Actions to deactivate cards
+        - Expiry warnings
+        """
+
+        list_display = [
+            'id',
+            'user',
+            'get_display_name',
+            'get_card_brand_badge',
+            'card_type',
+            'card_bank_name',
+            'get_expiry_display',
+            'get_usage_stats',
+            'is_default',
+            'is_active',
+            'last_used_at',
+        ]
+
+        list_filter = [
+            'card_brand',
+            'card_type',
+            'is_default',
+            'is_active',
+            'is_verified',
+            'created_at',
+        ]
+
+        search_fields = [
+            'user__email',
+            'user__username',
+            'card_last_four',
+            'card_holder_name',
+            'card_token',
+        ]
+
+        readonly_fields = [
+            'card_token',
+            'card_user_key',
+            'bin_number',
+            'is_verified',
+            'created_at',
+            'updated_at',
+            'last_used_at',
+            'get_detailed_usage_stats',
+        ]
+
+        fieldsets = [
+            (
+                _('User & Status'),
+                {
+                    'fields': (
+                        'user',
+                        'is_default',
+                        'is_active',
+                        'is_verified',
+                        'nickname',
+                    )
+                }
+            ),
+            (
+                _('Card Information'),
+                {
+                    'fields': (
+                        'card_last_four',
+                        'card_brand',
+                        'card_type',
+                        'card_family',
+                        'card_bank_name',
+                        'card_holder_name',
+                        'bin_number',
+                    )
+                }
+            ),
+            (
+                _('Expiry'),
+                {
+                    'fields': (
+                        'expiry_month',
+                        'expiry_year',
+                    )
+                }
+            ),
+            (
+                _('Security Tokens (PCI DSS Compliant)'),
+                {
+                    'fields': (
+                        'card_token',
+                        'card_user_key',
+                    ),
+                    'description': 'These are secure tokens from Iyzico, not actual card numbers.',
+                    'classes': ('collapse',),
+                }
+            ),
+            (
+                _('Usage Analytics'),
+                {
+                    'fields': (
+                        'get_detailed_usage_stats',
+                    ),
+                    'description': 'Comprehensive usage statistics for this payment method.',
+                }
+            ),
+            (
+                _('Metadata'),
+                {
+                    'fields': (
+                        'metadata',
+                        'created_at',
+                        'updated_at',
+                        'last_used_at',
+                    ),
+                    'classes': ('collapse',),
+                }
+            ),
+        ]
+
+        date_hierarchy = 'created_at'
+        ordering = ['-is_default', '-created_at']
+        list_per_page = 50
+
+        actions = ['deactivate_cards', 'set_as_default', 'delete_from_iyzico']
+
+        def get_card_brand_badge(self, obj: PaymentMethod) -> str:
+            """Display card brand with colored badge."""
+            brand_colors = {
+                CardBrand.VISA: '#1A1F71',  # Visa blue
+                CardBrand.MASTERCARD: '#EB001B',  # Mastercard red
+                CardBrand.AMEX: '#006FCF',  # Amex blue
+                CardBrand.TROY: '#00A3E0',  # Troy blue
+                CardBrand.OTHER: '#6c757d',  # Gray
+            }
+
+            color = brand_colors.get(obj.card_brand, '#6c757d')
+            brand_display = obj.get_card_brand_display()
+
+            return format_html(
+                '<span style="background-color: {}; color: white; padding: 3px 10px; '
+                'border-radius: 3px; font-weight: bold; font-size: 11px;">{}</span>',
+                color,
+                brand_display
+            )
+
+        get_card_brand_badge.short_description = _('Brand')
+        get_card_brand_badge.admin_order_field = 'card_brand'
+
+        def get_expiry_display(self, obj: PaymentMethod) -> str:
+            """Display expiry date with warnings."""
+            expiry_text = f"{obj.expiry_month}/{obj.expiry_year}"
+
+            if obj.is_expired():
+                return format_html(
+                    '<span style="color: #dc3545; font-weight: bold;">{} (EXPIRED)</span>',
+                    expiry_text
+                )
+            elif obj.expires_soon(within_days=30):
+                return format_html(
+                    '<span style="color: #fd7e14; font-weight: bold;">{} (Expires Soon)</span>',
+                    expiry_text
+                )
+            else:
+                return expiry_text
+
+        get_expiry_display.short_description = _('Expiry')
+
+        def get_usage_stats(self, obj: PaymentMethod) -> str:
+            """
+            Display payment method usage statistics.
+
+            Shows total successful payments and total amount billed using this card.
+            """
+            from django.db.models import Count, Sum, Q
+            from decimal import Decimal
+
+            # Get successful subscription payments using this card
+            # Note: We need to check if there's a payment_method foreign key
+            # Since PaymentMethod stores tokens, we match by card_token in metadata
+
+            # For now, we'll count subscriptions that might use this card
+            # A more accurate approach would be to link SubscriptionPayment to PaymentMethod
+            user_subscriptions = obj.user.iyzico_subscriptions.filter(
+                status__in=['active', 'cancelled', 'expired']
+            )
+
+            total_payments = 0
+            total_amount = Decimal('0.00')
+
+            for subscription in user_subscriptions:
+                stats = subscription.payments.filter(
+                    status='success'
+                ).aggregate(
+                    count=Count('id'),
+                    total=Sum('amount')
+                )
+
+                if stats['count']:
+                    total_payments += stats['count']
+                    total_amount += stats['total'] or Decimal('0.00')
+
+            if total_payments == 0:
+                return format_html('<span style="color: #999;">No usage</span>')
+
+            # Format amount with currency (assume TRY for now, could be enhanced)
+            return format_html(
+                '<span style="color: #28a745; font-weight: bold;">{} payment(s)</span><br>'
+                '<span style="color: #6c757d; font-size: 11px;">{} total</span>',
+                total_payments,
+                f'{total_amount:.2f} TRY'  # Could get currency from user's last payment
+            )
+
+        get_usage_stats.short_description = _('Usage')
+
+        def get_detailed_usage_stats(self, obj: PaymentMethod) -> str:
+            """
+            Display detailed payment method usage statistics in admin detail view.
+
+            Shows comprehensive analytics including:
+            - Total successful payments
+            - Total amount billed
+            - Active subscriptions using this card
+            - Last usage date
+            """
+            from django.db.models import Count, Sum
+            from decimal import Decimal
+
+            # Get all user subscriptions
+            user_subscriptions = obj.user.iyzico_subscriptions.all()
+
+            # Active subscriptions
+            active_subscriptions = user_subscriptions.filter(
+                status__in=['active', 'trialing']
+            ).count()
+
+            # Payment statistics
+            total_payments = 0
+            total_amount = Decimal('0.00')
+            successful_payments = 0
+            failed_payments = 0
+
+            for subscription in user_subscriptions:
+                payment_stats = subscription.payments.aggregate(
+                    total_count=Count('id'),
+                    success_count=Count('id', filter=Q(status='success')),
+                    failed_count=Count('id', filter=Q(status='failure')),
+                    total_amount=Sum('amount', filter=Q(status='success'))
+                )
+
+                total_payments += payment_stats['total_count'] or 0
+                successful_payments += payment_stats['success_count'] or 0
+                failed_payments += payment_stats['failed_count'] or 0
+                total_amount += payment_stats['total_amount'] or Decimal('0.00')
+
+            # Build HTML output
+            html = '<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">'
+
+            # Header
+            html += '<h3 style="margin-top: 0; color: #495057;">Payment Method Usage Analytics</h3>'
+
+            # Statistics grid
+            html += '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">'
+
+            # Active Subscriptions
+            html += f'''
+                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #28a745;">
+                    <div style="font-size: 24px; font-weight: bold; color: #28a745;">{active_subscriptions}</div>
+                    <div style="color: #6c757d; font-size: 12px;">Active Subscriptions</div>
+                </div>
+            '''
+
+            # Total Payments
+            html += f'''
+                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #007bff;">
+                    <div style="font-size: 24px; font-weight: bold; color: #007bff;">{successful_payments}</div>
+                    <div style="color: #6c757d; font-size: 12px;">Successful Payments</div>
+                </div>
+            '''
+
+            # Total Amount
+            html += f'''
+                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid #17a2b8;">
+                    <div style="font-size: 24px; font-weight: bold; color: #17a2b8;">{total_amount:.2f} TRY</div>
+                    <div style="color: #6c757d; font-size: 12px;">Total Amount Billed</div>
+                </div>
+            '''
+
+            # Failed Payments
+            failure_color = '#dc3545' if failed_payments > 0 else '#6c757d'
+            html += f'''
+                <div style="background: white; padding: 12px; border-radius: 4px; border-left: 4px solid {failure_color};">
+                    <div style="font-size: 24px; font-weight: bold; color: {failure_color};">{failed_payments}</div>
+                    <div style="color: #6c757d; font-size: 12px;">Failed Payments</div>
+                </div>
+            '''
+
+            html += '</div>'  # Close grid
+
+            # Last Used
+            if obj.last_used_at:
+                from django.utils.timesince import timesince
+                html += f'<div style="color: #6c757d; font-size: 13px; margin-top: 10px;">'
+                html += f'<strong>Last Used:</strong> {timesince(obj.last_used_at)} ago '
+                html += f'({obj.last_used_at.strftime("%Y-%m-%d %H:%M")})'
+                html += '</div>'
+            else:
+                html += '<div style="color: #999; font-size: 13px; margin-top: 10px;">Never used for payments</div>'
+
+            # Card Info
+            html += '<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">'
+            html += '<div style="color: #6c757d; font-size: 12px;">'
+            html += f'<strong>Card:</strong> {obj.get_card_brand_display()} ending in {obj.card_last_four}<br>'
+            html += f'<strong>Expires:</strong> {obj.expiry_month}/{obj.expiry_year}'
+
+            if obj.is_expired():
+                html += ' <span style="color: #dc3545; font-weight: bold;">EXPIRED</span>'
+            elif obj.expires_soon(within_days=30):
+                html += ' <span style="color: #fd7e14; font-weight: bold;">EXPIRES SOON</span>'
+
+            html += '</div></div>'
+
+            html += '</div>'  # Close main div
+
+            return mark_safe(html)
+
+        get_detailed_usage_stats.short_description = _('Usage Statistics')
+
+        def deactivate_cards(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Deactivate selected payment methods."""
+            count = 0
+            for payment_method in queryset:
+                if payment_method.is_active:
+                    payment_method.deactivate()
+                    count += 1
+
+            self.message_user(
+                request,
+                f"Deactivated {count} payment method(s).",
+                level='success',
+            )
+
+        deactivate_cards.short_description = _('Deactivate selected payment methods')
+
+        def set_as_default(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Set selected payment method as default (only one)."""
+            if queryset.count() != 1:
+                self.message_user(
+                    request,
+                    "Please select exactly one payment method to set as default.",
+                    level='error',
+                )
+                return
+
+            payment_method = queryset.first()
+
+            if not payment_method.is_active:
+                self.message_user(
+                    request,
+                    "Cannot set inactive payment method as default. Activate it first.",
+                    level='error',
+                )
+                return
+
+            if payment_method.is_expired():
+                self.message_user(
+                    request,
+                    "Cannot set expired payment method as default.",
+                    level='error',
+                )
+                return
+
+            payment_method.is_default = True
+            payment_method.save()
+
+            self.message_user(
+                request,
+                f"Set payment method {payment_method.id} as default for user {payment_method.user}.",
+                level='success',
+            )
+
+        set_as_default.short_description = _('Set as default payment method')
+
+        def delete_from_iyzico(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Delete cards from Iyzico and database."""
+            from .client import IyzicoClient
+
+            client = IyzicoClient()
+            deleted_count = 0
+            failed_count = 0
+
+            for payment_method in queryset:
+                try:
+                    # Delete from Iyzico first
+                    client.delete_card(
+                        card_token=payment_method.card_token,
+                        card_user_key=payment_method.card_user_key,
+                    )
+
+                    # Delete from database
+                    payment_method_id = payment_method.id
+                    payment_method.delete()
+
+                    logger.info(f"Deleted payment method {payment_method_id} from Iyzico and database")
+                    deleted_count += 1
+
+                except Exception as e:
+                    logger.error(f"Failed to delete payment method {payment_method.id}: {e}")
+                    self.message_user(
+                        request,
+                        f"Failed to delete payment method {payment_method.id}: {str(e)}",
+                        level='error',
+                    )
+                    failed_count += 1
+
+            if deleted_count > 0:
+                self.message_user(
+                    request,
+                    f"Successfully deleted {deleted_count} payment method(s) from Iyzico and database.",
+                    level='success',
+                )
+
+            if failed_count > 0:
+                self.message_user(
+                    request,
+                    f"Failed to delete {failed_count} payment method(s).",
+                    level='warning',
+                )
+
+        delete_from_iyzico.short_description = _('Delete from Iyzico and database')
+
+        def has_delete_permission(
+            self,
+            request: HttpRequest,
+            obj: Optional[PaymentMethod] = None
+        ) -> bool:
+            """
+            Prevent direct deletion - require using delete_from_iyzico action.
+
+            This ensures cards are removed from both Iyzico and database.
+            """
+            # Allow superusers to delete
+            if request.user.is_superuser:
+                return True
+
+            # For others, they should use the action
+            return False
+
+        def get_queryset(self, request: HttpRequest) -> QuerySet:
+            """Optimize queryset."""
+            qs = super().get_queryset(request)
+            return qs.select_related('user')
+
+
+    @admin.register(SubscriptionPlan)
+    class SubscriptionPlanAdmin(admin.ModelAdmin):
+        """
+        Admin interface for subscription plans.
+
+        Features:
+        - List/create/edit subscription plans
+        - View active subscriber counts
+        - Toggle plan active status
+        - Duplicate plans
+        """
+
+        list_display = [
+            'name',
+            'price_display',
+            'billing_interval_display',
+            'trial_period_days',
+            'get_subscriber_count',
+            'is_active',
+            'sort_order',
+        ]
+
+        list_filter = [
+            'is_active',
+            'billing_interval',
+            'currency',
+        ]
+
+        search_fields = [
+            'name',
+            'slug',
+            'description',
+        ]
+
+        prepopulated_fields = {
+            'slug': ('name',),
+        }
+
+        readonly_fields = [
+            'created_at',
+            'updated_at',
+            'get_subscriber_count',
+        ]
+
+        fieldsets = [
+            (
+                _('Basic Information'),
+                {
+                    'fields': (
+                        'name',
+                        'slug',
+                        'description',
+                        'is_active',
+                        'sort_order',
+                    )
+                }
+            ),
+            (
+                _('Pricing'),
+                {
+                    'fields': (
+                        'price',
+                        'currency',
+                        'billing_interval',
+                        'billing_interval_count',
+                    )
+                }
+            ),
+            (
+                _('Trial & Limits'),
+                {
+                    'fields': (
+                        'trial_period_days',
+                        'max_subscribers',
+                        'get_subscriber_count',
+                    )
+                }
+            ),
+            (
+                _('Features'),
+                {
+                    'fields': ('features',),
+                    'classes': ('collapse',),
+                }
+            ),
+            (
+                _('Metadata'),
+                {
+                    'fields': (
+                        'created_at',
+                        'updated_at',
+                    ),
+                    'classes': ('collapse',),
+                }
+            ),
+        ]
+
+        ordering = ['sort_order', 'price']
+        list_per_page = 25
+
+        actions = ['duplicate_plan', 'toggle_active']
+
+        def price_display(self, obj: SubscriptionPlan) -> str:
+            """Display formatted price."""
+            return f"{obj.price} {obj.currency}"
+
+        price_display.short_description = _('Price')
+        price_display.admin_order_field = 'price'
+
+        def billing_interval_display(self, obj: SubscriptionPlan) -> str:
+            """Display billing interval with count."""
+            if obj.billing_interval_count == 1:
+                return obj.get_billing_interval_display()
+            return f"Every {obj.billing_interval_count} {obj.get_billing_interval_display()}s"
+
+        billing_interval_display.short_description = _('Billing Interval')
+        billing_interval_display.admin_order_field = 'billing_interval'
+
+        def get_subscriber_count(self, obj: SubscriptionPlan) -> str:
+            """Get active subscriber count."""
+            count = obj.subscriptions.filter(
+                status__in=[SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+            ).count()
+
+            if obj.max_subscribers:
+                return format_html(
+                    '<span>{} / {} subscribers</span>',
+                    count,
+                    obj.max_subscribers,
+                )
+
+            return f"{count} subscribers"
+
+        get_subscriber_count.short_description = _('Subscribers')
+
+        def duplicate_plan(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Duplicate selected plans."""
+            for plan in queryset:
+                plan.pk = None
+                plan.name = f"{plan.name} (Copy)"
+                plan.slug = f"{plan.slug}-copy"
+                plan.is_active = False
+                plan.save()
+
+            self.message_user(
+                request,
+                f"Duplicated {queryset.count()} plan(s).",
+                level='success',
+            )
+
+        duplicate_plan.short_description = _('Duplicate selected plans')
+
+        def toggle_active(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Toggle active status of selected plans."""
+            for plan in queryset:
+                plan.is_active = not plan.is_active
+                plan.save()
+
+            self.message_user(
+                request,
+                f"Toggled active status for {queryset.count()} plan(s).",
+                level='success',
+            )
+
+        toggle_active.short_description = _('Toggle active status')
+
+
+    @admin.register(Subscription)
+    class SubscriptionAdmin(admin.ModelAdmin):
+        """
+        Admin interface for subscriptions.
+
+        Features:
+        - View and filter subscriptions
+        - Cancel subscriptions
+        - Process billing manually
+        - View payment history
+        - Status badges
+        """
+
+        list_display = [
+            'id',
+            'user',
+            'plan',
+            'get_status_badge',
+            'start_date',
+            'next_billing_date',
+            'get_payment_count',
+            'failed_payment_count',
+        ]
+
+        list_filter = [
+            'status',
+            'plan',
+            'cancel_at_period_end',
+            'created_at',
+        ]
+
+        search_fields = [
+            'user__email',
+            'user__username',
+            'plan__name',
+        ]
+
+        readonly_fields = [
+            'created_at',
+            'updated_at',
+            'get_payment_history',
+            'get_total_paid',
+        ]
+
+        fieldsets = [
+            (
+                _('Subscription Details'),
+                {
+                    'fields': (
+                        'user',
+                        'plan',
+                        'status',
+                    )
+                }
+            ),
+            (
+                _('Dates'),
+                {
+                    'fields': (
+                        'start_date',
+                        'trial_end_date',
+                        'current_period_start',
+                        'current_period_end',
+                        'next_billing_date',
+                    )
+                }
+            ),
+            (
+                _('Payment Tracking'),
+                {
+                    'fields': (
+                        'failed_payment_count',
+                        'last_payment_attempt',
+                        'last_payment_error',
+                        'get_payment_count',
+                        'get_total_paid',
+                        'get_payment_history',
+                    )
+                }
+            ),
+            (
+                _('Cancellation'),
+                {
+                    'fields': (
+                        'cancel_at_period_end',
+                        'cancelled_at',
+                        'cancellation_reason',
+                        'ended_at',
+                    )
+                }
+            ),
+            (
+                _('Metadata'),
+                {
+                    'fields': (
+                        'metadata',
+                        'created_at',
+                        'updated_at',
+                    ),
+                    'classes': ('collapse',),
+                }
+            ),
+        ]
+
+        date_hierarchy = 'created_at'
+        ordering = ['-created_at']
+        list_per_page = 50
+
+        actions = ['cancel_subscriptions', 'process_billing_manually']
+
+        def get_status_badge(self, obj: Subscription) -> str:
+            """Display colored status badge."""
+            status_colors = {
+                SubscriptionStatus.PENDING: '#ffc107',  # Yellow
+                SubscriptionStatus.TRIALING: '#17a2b8',  # Blue
+                SubscriptionStatus.ACTIVE: '#28a745',  # Green
+                SubscriptionStatus.PAST_DUE: '#fd7e14',  # Orange
+                SubscriptionStatus.PAUSED: '#6c757d',  # Gray
+                SubscriptionStatus.CANCELLED: '#343a40',  # Dark gray
+                SubscriptionStatus.EXPIRED: '#dc3545',  # Red
+            }
+
+            color = status_colors.get(obj.status, '#6c757d')
+            status_display = obj.get_status_display()
+
+            return format_html(
+                '<span style="background-color: {}; color: white; padding: 3px 10px; '
+                'border-radius: 3px; font-weight: bold; font-size: 11px;">{}</span>',
+                color,
+                status_display
+            )
+
+        get_status_badge.short_description = _('Status')
+        get_status_badge.admin_order_field = 'status'
+
+        def get_payment_count(self, obj: Subscription) -> int:
+            """Get successful payment count."""
+            return obj.payments.filter(status='success').count()
+
+        get_payment_count.short_description = _('Successful Payments')
+
+        def get_total_paid(self, obj: Subscription) -> str:
+            """Get total amount paid."""
+            total = obj.get_total_amount_paid()
+            return f"{total} {obj.plan.currency}"
+
+        get_total_paid.short_description = _('Total Paid')
+
+        def get_payment_history(self, obj: Subscription) -> str:
+            """Display payment history as table."""
+            payments = obj.payments.order_by('-created_at')[:10]
+
+            if not payments:
+                return mark_safe('<p>No payments yet.</p>')
+
+            html = '<table style="width: 100%; border-collapse: collapse;">'
+            html += '<tr style="background: #f5f5f5;">'
+            html += '<th style="padding: 8px; text-align: left;">Date</th>'
+            html += '<th style="padding: 8px; text-align: left;">Amount</th>'
+            html += '<th style="padding: 8px; text-align: left;">Status</th>'
+            html += '<th style="padding: 8px; text-align: left;">Attempt</th>'
+            html += '</tr>'
+
+            for payment in payments:
+                html += '<tr style="border-bottom: 1px solid #ddd;">'
+                html += f'<td style="padding: 8px;">{payment.created_at.strftime("%Y-%m-%d %H:%M")}</td>'
+                html += f'<td style="padding: 8px;">{payment.amount} {payment.currency}</td>'
+                html += f'<td style="padding: 8px;">{payment.get_status_display()}</td>'
+                html += f'<td style="padding: 8px;">#{payment.attempt_number}</td>'
+                html += '</tr>'
+
+            html += '</table>'
+
+            if obj.payments.count() > 10:
+                html += f'<p style="margin-top: 10px;"><em>Showing 10 of {obj.payments.count()} payments</em></p>'
+
+            return mark_safe(html)
+
+        get_payment_history.short_description = _('Recent Payments')
+
+        def cancel_subscriptions(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Cancel selected subscriptions."""
+            from .subscription_manager import SubscriptionManager
+
+            manager = SubscriptionManager()
+            cancelled_count = 0
+
+            for subscription in queryset:
+                if not subscription.is_cancelled():
+                    manager.cancel_subscription(
+                        subscription=subscription,
+                        at_period_end=True,
+                        reason="Cancelled by admin",
+                    )
+                    cancelled_count += 1
+
+            self.message_user(
+                request,
+                f"Cancelled {cancelled_count} subscription(s).",
+                level='success',
+            )
+
+        cancel_subscriptions.short_description = _('Cancel selected subscriptions')
+
+        def process_billing_manually(self, request: HttpRequest, queryset: QuerySet) -> None:
+            """Process billing for selected subscriptions manually."""
+            self.message_user(
+                request,
+                "Manual billing requires stored payment methods. "
+                "This feature will be available once payment method storage is implemented.",
+                level='warning',
+            )
+
+        process_billing_manually.short_description = _('Process billing manually')
+
+        def get_queryset(self, request: HttpRequest) -> QuerySet:
+            """Optimize queryset."""
+            qs = super().get_queryset(request)
+            return qs.select_related('user', 'plan').prefetch_related('payments')
+
+
+    @admin.register(SubscriptionPayment)
+    class SubscriptionPaymentAdmin(IyzicoPaymentAdminMixin, admin.ModelAdmin):
+        """
+        Admin interface for subscription payments.
+
+        Extends IyzicoPaymentAdminMixin with subscription-specific features.
+        """
+
+        list_display = IyzicoPaymentAdminMixin.list_display + [
+            'subscription',
+            'get_period_display',
+            'attempt_number',
+            'is_retry',
+        ]
+
+        list_filter = IyzicoPaymentAdminMixin.list_filter + [
+            'is_retry',
+            'is_prorated',
+        ]
+
+        search_fields = IyzicoPaymentAdminMixin.search_fields + [
+            'subscription__user__email',
+            'subscription__user__username',
+        ]
+
+        readonly_fields = IyzicoPaymentAdminMixin.readonly_fields + [
+            'subscription',
+            'period_start',
+            'period_end',
+            'attempt_number',
+            'is_retry',
+            'is_prorated',
+            'prorated_amount',
+        ]
+
+        fieldsets = IyzicoPaymentAdminMixin.fieldsets + [
+            (
+                _('Subscription Details'),
+                {
+                    'fields': (
+                        'subscription',
+                        'period_start',
+                        'period_end',
+                        'attempt_number',
+                        'is_retry',
+                        'is_prorated',
+                        'prorated_amount',
+                    )
+                }
+            ),
+        ]
+
+        def get_period_display(self, obj: SubscriptionPayment) -> str:
+            """Display billing period."""
+            return f"{obj.period_start.strftime('%Y-%m-%d')} - {obj.period_end.strftime('%Y-%m-%d')}"
+
+        get_period_display.short_description = _('Billing Period')
+
+        def get_queryset(self, request: HttpRequest) -> QuerySet:
+            """Optimize queryset."""
+            qs = super().get_queryset(request)
+            return qs.select_related('subscription', 'subscription__user', 'subscription__plan')
+
+except ImportError:
+    # Subscription models not available (not installed or migrated yet)
+    pass

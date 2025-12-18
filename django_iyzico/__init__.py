@@ -2,14 +2,14 @@
 django-iyzico: Django integration for Iyzico payment gateway
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Emre Aladag"
 __email__ = "your-email@example.com"
 
 default_app_config = "django_iyzico.apps.DjangoIyzicoConfig"
 
 # Version information
-VERSION = (0, 1, 0, "alpha", 0)
+VERSION = (0, 2, 0, "final", 0)
 
 
 def get_version():
@@ -39,6 +39,10 @@ from .signals import (
     threeds_failed,
     threeds_initiated,
     webhook_received,
+    # Monitoring signals
+    payment_alert,
+    double_billing_prevented,
+    high_failure_rate_detected,
 )
 
 # Lazy imports for Django components to avoid app registry issues
@@ -82,6 +86,10 @@ __all__ = [
     "threeds_completed",
     "threeds_failed",
     "webhook_received",
+    # Monitoring signals
+    "payment_alert",
+    "double_billing_prevented",
+    "high_failure_rate_detected",
     # Lazy imports (use functions to get these)
     "_get_client",
     "_get_models",

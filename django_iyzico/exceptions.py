@@ -53,3 +53,11 @@ class CardError(IyzicoError):
 class ThreeDSecureError(IyzicoError):
     """3D Secure authentication error."""
     pass
+
+
+# Aliases for backwards compatibility and clearer naming
+IyzicoAPIException = PaymentError
+"""Alias for PaymentError - used for API-level errors from Iyzico."""
+
+IyzicoValidationException = ValidationError
+"""Alias for ValidationError - used for input validation errors."""

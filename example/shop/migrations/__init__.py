@@ -1,0 +1,3 @@
+"""
+Shop app migrations.
+"""
