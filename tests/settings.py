@@ -37,6 +37,10 @@ IYZICO_BASE_URL = "https://sandbox-api.iyzipay.com"
 IYZICO_LOCALE = "tr"
 IYZICO_CURRENCY = "TRY"
 
+# Webhook settings for testing
+IYZICO_WEBHOOK_SECRET = "test-webhook-secret"
+IYZICO_WEBHOOK_ALLOWED_IPS = ["127.0.0.1", "192.168.1.0/24", "10.0.0.0/8"]
+
 USE_TZ = True
 TIME_ZONE = "Europe/Istanbul"
 
@@ -66,3 +70,7 @@ TEMPLATES = [
         },
     },
 ]
+
+# Celery settings for testing (eager execution - no broker needed)
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True

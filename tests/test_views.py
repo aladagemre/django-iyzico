@@ -4,16 +4,27 @@ Tests for django-iyzico views.
 Tests 3DS callback and webhook views.
 """
 
+import hashlib
+import hmac
 import json
 from unittest.mock import Mock, patch
 
 import pytest
+from django.conf import settings
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory
 
 from django_iyzico.exceptions import ThreeDSecureError
 from django_iyzico.signals import threeds_completed, threeds_failed, webhook_received
 from django_iyzico.views import threeds_callback_view, webhook_view
+
+
+def generate_webhook_signature(data: dict, secret: str = None) -> str:
+    """Generate valid webhook signature for testing."""
+    if secret is None:
+        secret = getattr(settings, "IYZICO_WEBHOOK_SECRET", "test-webhook-secret")
+    payload = json.dumps(data).encode("utf-8")
+    return hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
 
 
 @pytest.fixture
@@ -37,7 +48,7 @@ def add_session_to_request(request):
     return request
 
 
-def create_json_post_request(request_factory, url, data):
+def create_json_post_request(request_factory, url, data, include_signature=True, custom_signature=None):
     """
     Create a POST request with JSON data.
 
@@ -52,6 +63,12 @@ def create_json_post_request(request_factory, url, data):
     )
     # Explicitly set the body attribute for views that read request.body
     request._body = json_data.encode("utf-8")
+    # Set REMOTE_ADDR to an allowed IP for testing
+    request.META["REMOTE_ADDR"] = "127.0.0.1"
+    # Add webhook signature if requested
+    if include_signature:
+        signature = custom_signature if custom_signature else generate_webhook_signature(data)
+        request.META["HTTP_X_IYZICO_SIGNATURE"] = signature
     return request
 
 
@@ -307,8 +324,10 @@ class TestThreeDSCallbackView:
 
         # Verify session error data
         assert request.session.get("last_payment_status") == "failed"
-        assert request.session.get("last_payment_error") == "Card declined"
-        assert request.session.get("last_payment_error_code") == "5001"
+        # View stores a generic message for user display, not the raw error
+        assert request.session.get("last_payment_error") == "Payment processing failed. Please try again."
+        # Error code is the internal code used by the view
+        assert request.session.get("last_payment_error_code") == "PAYMENT_FAILED"
         assert request.session.get("last_payment_conversation_id") == "test-conv-123"
 
 
@@ -369,6 +388,14 @@ class TestWebhookView:
         )
         # Set invalid body
         request._body = b"not valid json"
+        request.META["REMOTE_ADDR"] = "127.0.0.1"
+        # Use signature computed for the invalid body
+        signature = hmac.new(
+            settings.IYZICO_WEBHOOK_SECRET.encode(),
+            request._body,
+            hashlib.sha256,
+        ).hexdigest()
+        request.META["HTTP_X_IYZICO_SIGNATURE"] = signature
 
         response = webhook_view(request)
 
@@ -499,22 +526,28 @@ class TestWebhookViewSecurity:
         assert response.status_code == 200
 
     @patch("django.conf.settings.IYZICO_WEBHOOK_SECRET", "", create=True)
+    @patch("django.conf.settings.IYZICO_WEBHOOK_ALLOWED_IPS", [], create=True)
+    @patch("django.conf.settings.DEBUG", True, create=True)
     def test_webhook_no_secret_configured_skips_validation(self, request_factory):
-        """Test webhook without secret configured skips signature validation."""
+        """Test webhook without secret configured skips signature validation in DEBUG mode."""
         webhook_data = {"iyziEventType": "payment.success"}
 
-        request = create_json_post_request(request_factory, "/webhook/", webhook_data)
-        # Even with invalid signature, should pass
+        request = create_json_post_request(
+            request_factory, "/webhook/", webhook_data, include_signature=False
+        )
+        # Even with invalid/no signature, should pass in DEBUG mode without secret
         request.META["HTTP_X_IYZICO_SIGNATURE"] = "invalid"
 
         response = webhook_view(request)
         assert response.status_code == 200
 
     @patch("django.conf.settings.IYZICO_WEBHOOK_ALLOWED_IPS", ["203.0.113.1"], create=True)
+    @patch("django.conf.settings.IYZICO_TRUST_X_FORWARDED_FOR", True, create=True)
     def test_webhook_with_x_forwarded_for_header(self, request_factory):
         """Test webhook IP extraction from X-Forwarded-For header."""
         webhook_data = {"iyziEventType": "payment.success"}
 
+        # Include valid signature for the webhook data
         request = create_json_post_request(request_factory, "/webhook/", webhook_data)
         # Set X-Forwarded-For header (proxied request)
         request.META["HTTP_X_FORWARDED_FOR"] = "203.0.113.1, 10.0.0.1"

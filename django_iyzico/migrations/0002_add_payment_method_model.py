@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("django_iyzico", "0002_add_installment_fields"),
+        ("django_iyzico", "0001_add_subscription_models"),
     ]
 
     operations = [

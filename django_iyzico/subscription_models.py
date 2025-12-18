@@ -9,12 +9,16 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
+import django
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+# Django 5.1+ renamed CheckConstraint's 'check' parameter to 'condition'
+CHECKCONSTRAINT_PARAM = "condition" if django.VERSION >= (5, 1) else "check"
 
 from .models import AbstractIyzicoPayment
 
@@ -713,7 +717,11 @@ class Subscription(models.Model):
         verbose_name_plural = _("Subscriptions")
         constraints = [
             models.CheckConstraint(
-                check=models.Q(current_period_end__gte=models.F("current_period_start")),
+                **{
+                    CHECKCONSTRAINT_PARAM: models.Q(
+                        current_period_end__gte=models.F("current_period_start")
+                    )
+                },
                 name="period_end_after_start",
             ),
         ]

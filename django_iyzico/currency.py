@@ -10,7 +10,7 @@ Supported Currencies:
     - GBP: British Pound Sterling
 """
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -284,7 +284,7 @@ def parse_amount(amount_str: str, currency: str) -> Decimal:
 
     try:
         return Decimal(cleaned)
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, InvalidOperation) as e:
         raise ValueError(f"Invalid amount format: {amount_str}") from e
 
 

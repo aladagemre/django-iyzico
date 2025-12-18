@@ -2,10 +2,14 @@
 
 from decimal import Decimal
 
+import django
 import django.core.validators
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
+
+# Django 5.1+ renamed CheckConstraint's 'check' parameter to 'condition'
+CHECKCONSTRAINT_PARAM = "condition" if django.VERSION >= (5, 1) else "check"
 
 
 class Migration(migrations.Migration):
@@ -319,6 +323,46 @@ class Migration(migrations.Migration):
                 ("card_bank_name", models.CharField(blank=True, max_length=100, null=True)),
                 ("card_bank_code", models.CharField(blank=True, max_length=10, null=True)),
                 ("installment", models.IntegerField(default=1)),
+                # Installment details (added in v0.2.0)
+                (
+                    "installment_rate",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        help_text="Installment fee rate as percentage",
+                        max_digits=5,
+                        null=True,
+                    ),
+                ),
+                (
+                    "monthly_installment_amount",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        help_text="Amount per month for installment payments",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                (
+                    "total_with_installment",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        help_text="Total amount including installment fees",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                (
+                    "bin_number",
+                    models.CharField(
+                        blank=True,
+                        help_text="First 6 digits of card (Bank Identification Number)",
+                        max_length=6,
+                        null=True,
+                    ),
+                ),
                 ("buyer_email", models.EmailField(blank=True, max_length=254, null=True)),
                 ("buyer_name", models.CharField(blank=True, max_length=100, null=True)),
                 ("buyer_surname", models.CharField(blank=True, max_length=100, null=True)),
@@ -427,7 +471,11 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="subscription",
             constraint=models.CheckConstraint(
-                check=models.Q(current_period_end__gte=models.F("current_period_start")),
+                **{
+                    CHECKCONSTRAINT_PARAM: models.Q(
+                        current_period_end__gte=models.F("current_period_start")
+                    )
+                },
                 name="period_end_after_start",
             ),
         ),

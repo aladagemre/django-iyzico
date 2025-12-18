@@ -104,7 +104,7 @@ class TestClientRefund:
         mock_refund_class.return_value = mock_refund
 
         client = IyzicoClient()
-        response = client.refund_payment("test-payment-123")
+        response = client.refund_payment("test-payment-123", ip_address="85.34.78.112")
 
         assert response.is_successful() is True
         assert response.payment_id == "test-payment-123"
@@ -127,7 +127,9 @@ class TestClientRefund:
         mock_refund_class.return_value = mock_refund
 
         client = IyzicoClient()
-        response = client.refund_payment("test-payment-123", amount=Decimal("50.00"))
+        response = client.refund_payment(
+            "test-payment-123", ip_address="85.34.78.112", amount=Decimal("50.00")
+        )
 
         assert response.is_successful() is True
         assert response.price == Decimal("50.00")
@@ -146,7 +148,9 @@ class TestClientRefund:
         mock_refund_class.return_value = mock_refund
 
         client = IyzicoClient()
-        response = client.refund_payment("test-payment-123", reason="Customer request")
+        response = client.refund_payment(
+            "test-payment-123", ip_address="85.34.78.112", reason="Customer request"
+        )
 
         assert response.is_successful() is True
 
@@ -165,7 +169,7 @@ class TestClientRefund:
         client = IyzicoClient()
 
         with pytest.raises(PaymentError) as exc_info:
-            client.refund_payment("test-payment-123")
+            client.refund_payment("test-payment-123", ip_address="85.34.78.112")
 
         assert "Refund failed" in str(exc_info.value)
         assert exc_info.value.error_code == "10000"
@@ -175,7 +179,7 @@ class TestClientRefund:
         client = IyzicoClient()
 
         with pytest.raises(ValidationError) as exc_info:
-            client.refund_payment("")
+            client.refund_payment("", ip_address="85.34.78.112")
 
         assert "Payment ID is required" in str(exc_info.value)
 
@@ -190,7 +194,7 @@ class TestClientRefund:
         client = IyzicoClient()
 
         with pytest.raises(PaymentError) as exc_info:
-            client.refund_payment("test-payment-123")
+            client.refund_payment("test-payment-123", ip_address="85.34.78.112")
 
         assert "Refund request failed" in str(exc_info.value)
 
@@ -217,7 +221,7 @@ class TestModelRefund:
         )
 
         # Process refund
-        response = payment.process_refund()
+        response = payment.process_refund(ip_address="85.34.78.112")
 
         assert response.is_successful() is True
 
@@ -250,7 +254,7 @@ class TestModelRefund:
         )
 
         # Process partial refund
-        response = payment.process_refund(amount=Decimal("50.00"))
+        response = payment.process_refund(ip_address="85.34.78.112", amount=Decimal("50.00"))
 
         assert response.is_successful() is True
         assert response.price == Decimal("50.00")
@@ -277,7 +281,7 @@ class TestModelRefund:
         )
 
         # Process refund with reason
-        response = payment.process_refund(reason="Customer not satisfied")
+        response = payment.process_refund(ip_address="85.34.78.112", reason="Customer not satisfied")
 
         assert response.is_successful() is True
 
@@ -296,7 +300,7 @@ class TestModelRefund:
         )
 
         with pytest.raises(DjangoValidationError) as exc_info:
-            payment.process_refund()
+            payment.process_refund(ip_address="85.34.78.112")
 
         assert "cannot be refunded" in str(exc_info.value)
 
@@ -312,7 +316,7 @@ class TestModelRefund:
         )
 
         with pytest.raises(DjangoValidationError) as exc_info:
-            payment.process_refund()
+            payment.process_refund(ip_address="85.34.78.112")
 
         assert "Payment ID is missing" in str(exc_info.value)
 
@@ -344,7 +348,9 @@ class TestModelRefund:
         )
 
         # Process refund
-        payment.process_refund(amount=Decimal("50.00"), reason="Test refund")
+        payment.process_refund(
+            ip_address="85.34.78.112", amount=Decimal("50.00"), reason="Test refund"
+        )
 
         # Verify signal was sent
         assert len(signal_received) == 1
