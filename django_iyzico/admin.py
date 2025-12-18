@@ -11,6 +11,7 @@ from django.contrib import admin
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from .models import PaymentStatus
@@ -360,9 +361,7 @@ class IyzicoPaymentAdminMixin:
         from django.utils.html import escape
 
         if not hasattr(obj, "has_installment") or not obj.has_installment():
-            return format_html(
-                '<p style="color: #666;">No installment applied - single payment</p>'
-            )
+            return mark_safe('<p style="color: #666;">No installment applied - single payment</p>')
 
         # Get installment details if method is available
         if hasattr(obj, "get_installment_details"):
@@ -382,7 +381,7 @@ class IyzicoPaymentAdminMixin:
                 details["base_amount"] = obj.amount
 
         if not details:
-            return format_html('<p style="color: #666;">Installment details not available</p>')
+            return mark_safe('<p style="color: #666;">Installment details not available</p>')
 
         # Build HTML table with properly escaped values
         currency = escape(str(obj.currency)) if hasattr(obj, "currency") else "TRY"
@@ -502,7 +501,7 @@ class IyzicoPaymentAdminMixin:
                 )
                 html_parts.append("</p>")
 
-        return format_html("".join(html_parts))
+        return mark_safe("".join(html_parts))
 
     get_installment_details_admin.short_description = _("Installment Details")
 
@@ -1025,7 +1024,7 @@ try:
                         currency = getattr(subscription.plan, "currency", "TRY") or "TRY"
 
             if total_payments == 0:
-                return format_html('<span style="color: #999;">No usage</span>')
+                return mark_safe('<span style="color: #999;">No usage</span>')
 
             # Format amount with currency from subscription plan
             return format_html(
@@ -1208,7 +1207,7 @@ try:
 
             html_parts.append("</div>")  # Close main div
 
-            return format_html("".join(html_parts))
+            return mark_safe("".join(html_parts))
 
         get_detailed_usage_stats.short_description = _("Usage Statistics")
 
@@ -1661,7 +1660,7 @@ try:
             payments = obj.payments.order_by("-created_at")[:10]
 
             if not payments:
-                return format_html("<p>No payments yet.</p>")
+                return mark_safe("<p>No payments yet.</p>")
 
             html_parts = []
             html_parts.append('<table style="width: 100%; border-collapse: collapse;">')
@@ -1694,7 +1693,7 @@ try:
                     f'<p style="margin-top: 10px;"><em>Showing 10 of {count} payments</em></p>'
                 )
 
-            return format_html("".join(html_parts))
+            return mark_safe("".join(html_parts))
 
         get_payment_history.short_description = _("Recent Payments")
 
