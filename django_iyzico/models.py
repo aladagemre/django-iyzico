@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .utils import extract_card_info, mask_card_data
+from .utils import extract_card_info, mask_card_data, sanitize_log_data
 
 
 class PaymentStatus(models.TextChoices):
@@ -81,10 +81,11 @@ class IyzicoPaymentManager(models.Manager):
             conversation_id: Conversation ID
 
         Returns:
-            Payment instance (first match)
+            Payment instance (first match) or None if not found
 
-        Raises:
-            DoesNotExist: If payment not found
+        Note:
+            Multiple payments may share the same conversation_id.
+            This method returns only the first match.
         """
         return self.filter(conversation_id=conversation_id).first()
 
@@ -445,22 +446,26 @@ class AbstractIyzicoPayment(models.Model):
 
             client = IyzicoClient()
             response = client.refund_payment(
-                payment_id=self.payment_id,
+                payment_id=payment.payment_id,
                 ip_address=ip_address,
                 amount=amount,
                 reason=reason,
             )
 
+            if response.is_successful():
+                # Update payment status inside atomic block to prevent race conditions
+                if amount is None or amount >= payment.amount:
+                    payment.status = PaymentStatus.REFUNDED
+                else:
+                    payment.status = PaymentStatus.REFUND_PENDING
+
+                payment.save()
+
+                # Update self to reflect the changes
+                self.status = payment.status
+
         if response.is_successful():
-            # Update payment status
-            if amount is None or amount >= self.amount:
-                self.status = PaymentStatus.REFUNDED
-            else:
-                self.status = PaymentStatus.REFUND_PENDING
-
-            self.save()
-
-            # Send signal
+            # Send signal outside atomic block to avoid holding lock during signal processing
             payment_refunded.send(
                 sender=self.__class__,
                 instance=self,
@@ -555,8 +560,8 @@ class AbstractIyzicoPayment(models.Model):
         if response_dict.get("errorGroup"):
             self.error_group = response_dict["errorGroup"]
 
-        # Store raw response for audit
-        self.raw_response = response_dict
+        # Store sanitized raw response for audit (removes sensitive data)
+        self.raw_response = sanitize_log_data(response_dict)
 
         if save:
             self.save()

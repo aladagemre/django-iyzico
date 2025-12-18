@@ -31,16 +31,17 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-class PaymentResponse:
+class BaseIyzicoResponse:
     """
-    Wrapper for Iyzico payment response.
+    Base class for Iyzico API responses.
 
-    Provides a consistent interface for accessing payment response data.
+    Provides common functionality for parsing and accessing response data.
+    Subclasses should extend this with response-type-specific properties.
     """
 
     def __init__(self, raw_response: Any):
         """
-        Initialize payment response.
+        Initialize response.
 
         Args:
             raw_response: Raw response from iyzipay SDK
@@ -51,18 +52,28 @@ class PaymentResponse:
         self._error_message = self.raw_response.get("errorMessage")
 
     def is_successful(self) -> bool:
-        """Check if payment was successful."""
+        """Check if operation was successful."""
         return self._status == "success"
 
     @property
     def status(self) -> str:
-        """Get payment status."""
+        """Get response status."""
         return self._status or "failure"
 
     @property
-    def payment_id(self) -> Optional[str]:
-        """Get Iyzico payment ID."""
-        return self.raw_response.get("paymentId")
+    def error_code(self) -> Optional[str]:
+        """Get error code if operation failed."""
+        return self._error_code
+
+    @property
+    def error_message(self) -> Optional[str]:
+        """Get error message if operation failed."""
+        return self._error_message
+
+    @property
+    def error_group(self) -> Optional[str]:
+        """Get error group if operation failed."""
+        return self.raw_response.get("errorGroup")
 
     @property
     def conversation_id(self) -> Optional[str]:
@@ -70,27 +81,35 @@ class PaymentResponse:
         return self.raw_response.get("conversationId")
 
     @property
-    def error_code(self) -> Optional[str]:
-        """Get error code if payment failed."""
-        return self._error_code
-
-    @property
-    def error_message(self) -> Optional[str]:
-        """Get error message if payment failed."""
-        return self._error_message
-
-    @property
-    def error_group(self) -> Optional[str]:
-        """Get error group if payment failed."""
-        return self.raw_response.get("errorGroup")
-
-    @property
     def price(self) -> Optional[Decimal]:
-        """Get payment price."""
+        """Get price/amount."""
         price_str = self.raw_response.get("price")
         if price_str:
             return Decimal(str(price_str))
         return None
+
+    @property
+    def currency(self) -> Optional[str]:
+        """Get currency code."""
+        return self.raw_response.get("currency")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert response to dictionary."""
+        return self.raw_response
+
+
+class PaymentResponse(BaseIyzicoResponse):
+    """
+    Wrapper for Iyzico payment response.
+
+    Provides a consistent interface for accessing payment response data.
+    Inherits common properties from BaseIyzicoResponse.
+    """
+
+    @property
+    def payment_id(self) -> Optional[str]:
+        """Get Iyzico payment ID."""
+        return self.raw_response.get("paymentId")
 
     @property
     def paid_price(self) -> Optional[Decimal]:
@@ -99,11 +118,6 @@ class PaymentResponse:
         if paid_price_str:
             return Decimal(str(paid_price_str))
         return None
-
-    @property
-    def currency(self) -> Optional[str]:
-        """Get currency code."""
-        return self.raw_response.get("currency")
 
     @property
     def installment(self) -> int:
@@ -129,10 +143,6 @@ class PaymentResponse:
     def buyer_surname(self) -> Optional[str]:
         """Get buyer surname."""
         return self.raw_response.get("buyerSurname")
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert response to dictionary."""
-        return self.raw_response
 
     def __str__(self) -> str:
         """String representation."""
@@ -161,33 +171,13 @@ class ThreeDSResponse(PaymentResponse):
         return self.raw_response.get("token")
 
 
-class RefundResponse:
+class RefundResponse(BaseIyzicoResponse):
     """
     Wrapper for Iyzico refund response.
 
     Provides a consistent interface for accessing refund response data.
+    Inherits common properties from BaseIyzicoResponse.
     """
-
-    def __init__(self, raw_response: Any):
-        """
-        Initialize refund response.
-
-        Args:
-            raw_response: Raw response from iyzipay SDK
-        """
-        self.raw_response = parse_iyzico_response(raw_response)
-        self._status = self.raw_response.get("status")
-        self._error_code = self.raw_response.get("errorCode")
-        self._error_message = self.raw_response.get("errorMessage")
-
-    def is_successful(self) -> bool:
-        """Check if refund was successful."""
-        return self._status == "success"
-
-    @property
-    def status(self) -> str:
-        """Get refund status."""
-        return self._status or "failure"
 
     @property
     def payment_id(self) -> Optional[str]:
@@ -198,43 +188,6 @@ class RefundResponse:
     def refund_id(self) -> Optional[str]:
         """Get Iyzico refund ID."""
         return self.raw_response.get("paymentTransactionId")
-
-    @property
-    def conversation_id(self) -> Optional[str]:
-        """Get conversation ID."""
-        return self.raw_response.get("conversationId")
-
-    @property
-    def error_code(self) -> Optional[str]:
-        """Get error code if refund failed."""
-        return self._error_code
-
-    @property
-    def error_message(self) -> Optional[str]:
-        """Get error message if refund failed."""
-        return self._error_message
-
-    @property
-    def error_group(self) -> Optional[str]:
-        """Get error group if refund failed."""
-        return self.raw_response.get("errorGroup")
-
-    @property
-    def price(self) -> Optional[Decimal]:
-        """Get refunded amount."""
-        price_str = self.raw_response.get("price")
-        if price_str:
-            return Decimal(str(price_str))
-        return None
-
-    @property
-    def currency(self) -> Optional[str]:
-        """Get currency code."""
-        return self.raw_response.get("currency")
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert response to dictionary."""
-        return self.raw_response
 
     def __str__(self) -> str:
         """String representation."""
@@ -548,7 +501,7 @@ class IyzicoClient:
                 error_code="MISSING_TOKEN",
             )
 
-        logger.info(f"Completing 3DS payment - token={token[:10]}...")
+        logger.info(f"Completing 3DS payment - token_prefix={token[:6]}***")
 
         try:
             # Call Iyzico 3DS completion API
@@ -614,11 +567,16 @@ class IyzicoClient:
         Example:
             >>> client = IyzicoClient()
             >>> # Full refund
-            >>> response = client.refund_payment("payment-123")
+            >>> response = client.refund_payment("payment-123", ip_address="192.168.1.1")
             >>> if response.is_successful():
             ...     print(f"Refund ID: {response.refund_id}")
             >>> # Partial refund
-            >>> response = client.refund_payment("payment-123", amount=Decimal("50.00"))
+            >>> response = client.refund_payment(
+            ...     "payment-123",
+            ...     ip_address="192.168.1.1",
+            ...     amount=Decimal("50.00"),
+            ...     reason="Customer requested partial refund"
+            ... )
         """
         if not payment_id:
             raise ValidationError(
@@ -767,9 +725,7 @@ class IyzicoClient:
             },
         }
 
-        logger.info(
-            f"Registering card for user external_id={external_id or buyer.get('id')}"
-        )
+        logger.info("Registering card for user")
 
         try:
             # Call Iyzico Card Storage API
@@ -808,8 +764,8 @@ class IyzicoClient:
             card_bank_code = response_dict.get("cardBankCode")
 
             logger.info(
-                f"Card registered successfully - card_token={card_token}, "
-                f"card_user_key={card_user_key}, last_four={last_four_digits}"
+                f"Card registered successfully - last_four={last_four_digits}, "
+                f"card_association={card_association}"
             )
 
             return {
@@ -882,7 +838,7 @@ class IyzicoClient:
             "cardUserKey": card_user_key,
         }
 
-        logger.info(f"Deleting card - card_token={card_token}")
+        logger.info("Deleting card from Iyzico")
 
         try:
             # Call Iyzico Card Deletion API
@@ -908,7 +864,7 @@ class IyzicoClient:
                     error_group=response_dict.get("errorGroup"),
                 )
 
-            logger.info(f"Card deleted successfully - card_token={card_token}")
+            logger.info("Card deleted successfully from Iyzico")
             return True
 
         except CardError:

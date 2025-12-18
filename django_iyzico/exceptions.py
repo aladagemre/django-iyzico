@@ -1,10 +1,17 @@
 """Custom exceptions for django-iyzico."""
 
+from typing import Optional
+
 
 class IyzicoError(Exception):
     """Base exception for all django-iyzico errors."""
 
-    def __init__(self, message: str, error_code: str = None, error_group: str = None):
+    def __init__(
+        self,
+        message: str,
+        error_code: Optional[str] = None,
+        error_group: Optional[str] = None,
+    ):
         """
         Initialize Iyzico error.
 

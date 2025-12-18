@@ -3,27 +3,62 @@ Views for installment payment functionality.
 
 Provides AJAX endpoints for fetching installment options
 and processing installment payments.
+
+Security Note:
+    All installment views require authentication by default to prevent
+    BIN enumeration attacks. Rate limiting is also applied as an
+    additional security measure.
 """
 
 import logging
 from decimal import Decimal, InvalidOperation
 from typing import Dict, Any
 
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.views import View
 from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 
 from .installment_client import InstallmentClient
 from .exceptions import IyzicoValidationException, IyzicoAPIException
+from .utils import get_client_ip
 
 logger = logging.getLogger(__name__)
 
 
-class InstallmentOptionsView(View):
+def _check_rate_limit(request, cache_key_prefix: str, max_requests: int = 30, window_seconds: int = 60) -> bool:
+    """
+    Check if request is within rate limits.
+
+    Args:
+        request: HTTP request
+        cache_key_prefix: Prefix for cache key
+        max_requests: Maximum requests allowed in window
+        window_seconds: Time window in seconds
+
+    Returns:
+        True if within limits, False if exceeded
+    """
+    client_ip = get_client_ip(request)
+    cache_key = f"{cache_key_prefix}_{client_ip}"
+    request_count = cache.get(cache_key, 0)
+
+    if request_count >= max_requests:
+        return False
+
+    cache.set(cache_key, request_count + 1, window_seconds)
+    return True
+
+
+class InstallmentOptionsView(LoginRequiredMixin, View):
     """
     AJAX view to fetch installment options for a card BIN and amount.
+
+    Requires authentication to prevent BIN enumeration attacks.
 
     Returns JSON with available installment options from all banks.
 
@@ -53,6 +88,8 @@ class InstallmentOptionsView(View):
             ]
         }
     """
+    # Return JSON response for AJAX requests instead of redirect
+    raise_exception = True
 
     def get(self, request, *args, **kwargs):
         """Handle GET request for installment options."""
@@ -119,14 +156,22 @@ class InstallmentOptionsView(View):
             }, status=500)
 
 
-class BestInstallmentOptionsView(View):
+class BestInstallmentOptionsView(LoginRequiredMixin, View):
     """
     AJAX view to get best/recommended installment options.
+
+    Requires authentication to prevent BIN enumeration attacks.
 
     Returns top installment options prioritizing 0% interest.
 
     Example request:
-        GET /iyzico/installments/best/?bin=554960&amount=100.00&max=5
+        GET /iyzico/installments/best/?bin=554960&amount=100.00&max=5&currency=TRY
+
+    Query Parameters:
+        bin: Card BIN (first 6 digits)
+        amount: Payment amount
+        max: Maximum number of options (default: 5, max: 20)
+        currency: Currency code (TRY, USD, EUR, GBP) - defaults to TRY
 
     Example response:
         {
@@ -143,6 +188,8 @@ class BestInstallmentOptionsView(View):
             ]
         }
     """
+    # Return JSON response for AJAX requests instead of redirect
+    raise_exception = True
 
     def get(self, request, *args, **kwargs):
         """Handle GET request for best installment options."""
@@ -150,7 +197,19 @@ class BestInstallmentOptionsView(View):
             # Get parameters
             bin_number = request.GET.get('bin', '').strip()
             amount_str = request.GET.get('amount', '').strip()
-            max_options = int(request.GET.get('max', 5))
+            # Currency parameter - defaults to TRY but can be overridden
+            currency = request.GET.get('currency', 'TRY').strip().upper()
+            # Validate currency (allow common currencies)
+            valid_currencies = {'TRY', 'USD', 'EUR', 'GBP'}
+            if currency not in valid_currencies:
+                currency = 'TRY'
+
+            # Safe int conversion with bounds
+            try:
+                max_options = int(request.GET.get('max', 5))
+                max_options = max(1, min(max_options, 20))  # Bounded between 1 and 20
+            except (ValueError, TypeError):
+                max_options = 5
 
             # Validate
             if not bin_number or not amount_str:
@@ -159,7 +218,14 @@ class BestInstallmentOptionsView(View):
                     'error': 'BIN and amount are required',
                 }, status=400)
 
-            amount = Decimal(amount_str)
+            # Safe Decimal conversion
+            try:
+                amount = Decimal(amount_str)
+            except (InvalidOperation, ValueError):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid amount format',
+                }, status=400)
 
             # Get best options
             client = InstallmentClient()
@@ -185,7 +251,7 @@ class BestInstallmentOptionsView(View):
                 option_dict['display'] = format_installment_display(
                     installment_count=opt.installment_number,
                     monthly_payment=opt.monthly_price,
-                    currency='TRY',
+                    currency=currency,
                     show_total=True,
                     total_with_fees=opt.total_price,
                     base_amount=opt.base_price,
@@ -205,9 +271,11 @@ class BestInstallmentOptionsView(View):
             }, status=500)
 
 
-class ValidateInstallmentView(View):
+class ValidateInstallmentView(LoginRequiredMixin, View):
     """
     AJAX view to validate an installment selection.
+
+    Requires authentication to prevent BIN enumeration attacks.
 
     Verifies that the selected installment option is available
     for the given BIN and amount.
@@ -232,15 +300,20 @@ class ValidateInstallmentView(View):
             }
         }
     """
-
-    @method_decorator(csrf_exempt)
-    def dispatch(self, *args, **kwargs):
-        """Disable CSRF for API endpoint."""
-        return super().dispatch(*args, **kwargs)
+    # Return JSON response for AJAX requests instead of redirect
+    raise_exception = True
 
     def post(self, request, *args, **kwargs):
         """Handle POST request to validate installment."""
         import json
+
+        # Rate limiting as additional protection layer
+        if not _check_rate_limit(request, 'installment_validate', max_requests=30, window_seconds=60):
+            logger.warning(f"Rate limit exceeded for installment validation from IP {get_client_ip(request)}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Rate limit exceeded. Please try again later.',
+            }, status=429)
 
         try:
             # Parse JSON body
@@ -253,8 +326,8 @@ class ValidateInstallmentView(View):
                 }, status=400)
 
             # Get parameters
-            bin_number = data.get('bin', '').strip()
-            amount_str = data.get('amount', '').strip()
+            bin_number = data.get('bin', '').strip() if data.get('bin') else ''
+            amount_str = data.get('amount', '').strip() if data.get('amount') else ''
             installment_number = data.get('installment')
 
             # Validate
@@ -264,8 +337,25 @@ class ValidateInstallmentView(View):
                     'error': 'BIN, amount, and installment are required',
                 }, status=400)
 
-            amount = Decimal(amount_str)
-            installment_number = int(installment_number)
+            # Safe Decimal conversion
+            try:
+                amount = Decimal(amount_str)
+            except (InvalidOperation, ValueError):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid amount format',
+                }, status=400)
+
+            # Safe int conversion
+            try:
+                installment_number = int(installment_number)
+                if installment_number < 1 or installment_number > 36:
+                    raise ValueError("Installment number out of range")
+            except (ValueError, TypeError):
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid installment number',
+                }, status=400)
 
             # Validate installment option
             client = InstallmentClient()
@@ -298,10 +388,13 @@ class ValidateInstallmentView(View):
 
 
 # Function-based view for simple use cases
+@login_required
 @require_http_methods(["GET"])
 def get_installment_options(request):
     """
     Simple function-based view to get installment options.
+
+    Requires authentication to prevent BIN enumeration attacks.
 
     Query parameters:
         - bin: Card BIN (first 6 digits)
@@ -311,6 +404,7 @@ def get_installment_options(request):
         JSON response with installment options
     """
     view = InstallmentOptionsView()
+    view.request = request  # Set request for LoginRequiredMixin to access user
     return view.get(request)
 
 
@@ -319,11 +413,18 @@ try:
     from rest_framework import viewsets, status
     from rest_framework.decorators import action
     from rest_framework.response import Response
-    from rest_framework.permissions import AllowAny
+    from rest_framework.permissions import IsAuthenticated
+    from rest_framework.throttling import UserRateThrottle
+
+    class InstallmentRateThrottle(UserRateThrottle):
+        """Rate throttle for installment endpoints to prevent BIN enumeration."""
+        rate = '30/minute'
 
     class InstallmentViewSet(viewsets.ViewSet):
         """
         ViewSet for installment operations (DRF).
+
+        Requires authentication to prevent BIN enumeration attacks.
 
         Endpoints:
             GET /installments/options/?bin=554960&amount=100.00
@@ -331,7 +432,8 @@ try:
             POST /installments/validate/
         """
 
-        permission_classes = [AllowAny]
+        permission_classes = [IsAuthenticated]
+        throttle_classes = [InstallmentRateThrottle]
 
         @action(detail=False, methods=['get'])
         def options(self, request):
@@ -347,6 +449,13 @@ try:
 
             try:
                 amount = Decimal(amount_str)
+            except (InvalidOperation, ValueError):
+                return Response(
+                    {'error': 'Invalid amount format'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
                 client = InstallmentClient()
                 bank_options = client.get_installment_info(bin_number, amount)
 
@@ -371,7 +480,18 @@ try:
             """Get best installment options."""
             bin_number = request.query_params.get('bin')
             amount_str = request.query_params.get('amount')
-            max_options = int(request.query_params.get('max', 5))
+            # Currency parameter - defaults to TRY but can be overridden
+            currency = (request.query_params.get('currency', 'TRY') or 'TRY').strip().upper()
+            valid_currencies = {'TRY', 'USD', 'EUR', 'GBP'}
+            if currency not in valid_currencies:
+                currency = 'TRY'
+
+            # Safe int conversion with bounds
+            try:
+                max_options = int(request.query_params.get('max', 5))
+                max_options = max(1, min(max_options, 20))  # Bounded between 1 and 20
+            except (ValueError, TypeError):
+                max_options = 5
 
             if not bin_number or not amount_str:
                 return Response(
@@ -381,6 +501,13 @@ try:
 
             try:
                 amount = Decimal(amount_str)
+            except (InvalidOperation, ValueError):
+                return Response(
+                    {'error': 'Invalid amount format'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
                 client = InstallmentClient()
                 best_options = client.get_best_installment_options(
                     bin_number, amount, max_options
@@ -394,7 +521,7 @@ try:
                     option_dict['display'] = format_installment_display(
                         opt.installment_number,
                         opt.monthly_price,
-                        'TRY',
+                        currency,
                         True,
                         opt.total_price,
                         opt.base_price,
@@ -423,10 +550,27 @@ try:
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Safe Decimal conversion
             try:
                 amount = Decimal(amount_str)
-                installment_number = int(installment_number)
+            except (InvalidOperation, ValueError):
+                return Response(
+                    {'error': 'Invalid amount format'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
+            # Safe int conversion with bounds
+            try:
+                installment_number = int(installment_number)
+                if installment_number < 1 or installment_number > 36:
+                    raise ValueError("Installment number out of range")
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'Invalid installment number'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
                 client = InstallmentClient()
                 option = client.validate_installment_option(
                     bin_number, amount, installment_number

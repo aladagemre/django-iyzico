@@ -6,7 +6,6 @@ installment options.
 """
 
 import logging
-import re
 from decimal import Decimal
 from typing import Dict, List, Optional, Set
 from dataclasses import dataclass
@@ -428,7 +427,10 @@ class InstallmentClient:
 
         except Exception as e:
             logger.exception(f"Unexpected error getting installment info: {e}")
-            raise IyzicoAPIException(f"Failed to retrieve installment info: {str(e)}")
+            raise IyzicoAPIException(
+                f"Failed to retrieve installment info: {str(e)}",
+                error_code="INSTALLMENT_FETCH_ERROR"
+            ) from e
 
     def _parse_installment_response(
         self,

@@ -116,6 +116,24 @@ class IyzicoSettings:
         return get_setting("WEBHOOK_ALLOWED_IPS", default=[])
 
     @property
+    def trust_x_forwarded_for(self) -> bool:
+        """
+        Whether to trust X-Forwarded-For header for client IP detection.
+
+        WARNING: Only set this to True if your application is behind a trusted
+        reverse proxy (nginx, HAProxy, load balancer) that properly sets this
+        header. If set to True without a trusted proxy, attackers can spoof
+        their IP address and bypass IP-based security controls.
+
+        Default: False (secure by default)
+
+        Security Note:
+            If you're behind a reverse proxy, set IYZICO_TRUST_X_FORWARDED_FOR=True
+            to correctly detect client IP addresses through the proxy.
+        """
+        return get_setting("TRUST_X_FORWARDED_FOR", default=False)
+
+    @property
     def strict_ip_validation(self) -> bool:
         """
         Whether to require IP addresses for all payment operations.

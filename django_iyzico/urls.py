@@ -13,9 +13,10 @@ Include these URLs in your project's urls.py:
 This will create the following endpoints:
     - /iyzico/callback/ - 3D Secure callback (called by Iyzico)
     - /iyzico/webhook/ - Webhook handler (called by Iyzico)
-    - /iyzico/webhook/test/ - Test webhook (development only)
+    - /iyzico/webhook/test/ - Test webhook (development only, DEBUG mode)
 """
 
+from django.conf import settings
 from django.urls import path
 
 from . import views
@@ -37,11 +38,15 @@ urlpatterns = [
         views.webhook_view,
         name="webhook",
     ),
-    # Test webhook endpoint (development only)
-    # Allows manual webhook testing in DEBUG mode
-    path(
-        "webhook/test/",
-        views.test_webhook_view,
-        name="test_webhook",
-    ),
 ]
+
+# SECURITY: Only include test webhook endpoint in DEBUG mode
+# This prevents the test endpoint from being exposed in production
+if getattr(settings, 'DEBUG', False):
+    urlpatterns.append(
+        path(
+            "webhook/test/",
+            views.test_webhook_view,
+            name="test_webhook",
+        ),
+    )

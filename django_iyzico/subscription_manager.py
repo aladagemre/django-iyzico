@@ -454,7 +454,8 @@ class SubscriptionManager:
             )
 
         except Exception as e:
-            # Unexpected errors
+            # Unexpected errors - explicitly set error_code for clarity
+            error_code = None
             error_message = f"Unexpected error: {str(e)}"
             logger.exception(
                 f"Unexpected error processing subscription {subscription.id}"
