@@ -29,14 +29,14 @@ from .signals import (  # Monitoring signals
     webhook_received,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Emre Aladag"
 __email__ = "your-email@example.com"
 
 default_app_config = "django_iyzico.apps.DjangoIyzicoConfig"
 
 # Version information
-VERSION = (0, 2, 0, "final", 0)
+VERSION = (0, 2, 1, "final", 0)
 
 
 def get_version():

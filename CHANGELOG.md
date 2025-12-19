@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-19
+
+### Changed
+- **Documentation Updates**
+  - Updated DEVELOPMENT_ROADMAP.md with accurate codebase metrics
+  - Test count: 662 → 783 test methods across 23 test files
+  - Production code: ~12,000 → ~17,400 lines
+  - Test code: ~14,900 lines documented
+  - Documentation: ~25,000 → ~30,000 words
+  - Updated compatibility: Django 6.0+ only (removed support for older versions)
+  - Added CI/CD and DevContainer status documentation
+  - Fixed next review date to 2026
+
 ## [0.2.0] - 2025-12-18
 
 ### Added
