@@ -5,6 +5,17 @@ django-iyzico: Django integration for Iyzico payment gateway
 # Expose commonly used classes and functions
 # Note: Models are NOT imported here to avoid Django app registry issues
 # Import them directly from django_iyzico.models when needed
+
+# Client and response classes (safe to import - no Django app registry dependency)
+from .client import (
+    BaseIyzicoResponse,
+    CheckoutFormResponse,
+    CheckoutFormResultResponse,
+    IyzicoClient,
+    PaymentResponse,
+    RefundResponse,
+    ThreeDSResponse,
+)
 from .exceptions import (
     CardError,
     ConfigurationError,
@@ -29,14 +40,14 @@ from .signals import (  # Monitoring signals
     webhook_received,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 __author__ = "Emre Aladag"
 __email__ = "your-email@example.com"
 
 default_app_config = "django_iyzico.apps.DjangoIyzicoConfig"
 
 # Version information
-VERSION = (0, 2, 1, "final", 0)
+VERSION = (0, 2, 2, "final", 0)
 
 
 def get_version():
@@ -45,13 +56,6 @@ def get_version():
 
 
 # Lazy imports for Django components to avoid app registry issues
-
-
-def _get_client():
-    """Lazy import of IyzicoClient."""
-    from .client import IyzicoClient
-
-    return IyzicoClient
 
 
 def _get_models():
@@ -66,6 +70,14 @@ __all__ = [
     "__version__",
     "get_version",
     "VERSION",
+    # Client and response classes
+    "IyzicoClient",
+    "BaseIyzicoResponse",
+    "PaymentResponse",
+    "ThreeDSResponse",
+    "RefundResponse",
+    "CheckoutFormResponse",
+    "CheckoutFormResultResponse",
     # Settings
     "IyzicoSettings",
     "iyzico_settings",
@@ -91,6 +103,5 @@ __all__ = [
     "double_billing_prevented",
     "high_failure_rate_detected",
     # Lazy imports (use functions to get these)
-    "_get_client",
     "_get_models",
 ]

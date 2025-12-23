@@ -1030,3 +1030,405 @@ class TestCreatePaymentWithToken:
             )
 
         assert "Card declined" in str(exc_info.value)
+
+
+class TestCheckoutFormResponse:
+    """Test CheckoutFormResponse wrapper class."""
+
+    def test_successful_response(self):
+        """Test successful checkout form response."""
+        from django_iyzico.client import CheckoutFormResponse
+
+        response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+            "checkoutFormContent": "<div>Checkout Form</div>",
+            "paymentPageUrl": "https://checkout.iyzico.com/payment/abc123",
+            "tokenExpireTime": 1800,
+            "conversationId": "test-conv-123",
+        }
+
+        response = CheckoutFormResponse(response_data)
+
+        assert response.is_successful() is True
+        assert response.status == "success"
+        assert response.token == "checkout-token-abc123"
+        assert response.checkout_form_content == "<div>Checkout Form</div>"
+        assert response.payment_page_url == "https://checkout.iyzico.com/payment/abc123"
+        assert response.token_expire_time == 1800
+        assert response.conversation_id == "test-conv-123"
+
+    def test_failed_response(self):
+        """Test failed checkout form response."""
+        from django_iyzico.client import CheckoutFormResponse
+
+        response_data = {
+            "status": "failure",
+            "errorCode": "1000",
+            "errorMessage": "Invalid request",
+            "errorGroup": "SYSTEM",
+        }
+
+        response = CheckoutFormResponse(response_data)
+
+        assert response.is_successful() is False
+        assert response.error_code == "1000"
+        assert response.error_message == "Invalid request"
+        assert response.token is None
+
+    def test_str_representation(self):
+        """Test string representation."""
+        from django_iyzico.client import CheckoutFormResponse
+
+        response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+        }
+
+        response = CheckoutFormResponse(response_data)
+        str_repr = str(response)
+
+        assert "success" in str_repr
+        # Token is truncated to first 8 chars with "..."
+        assert "checkout" in str_repr
+
+
+class TestCheckoutFormResultResponse:
+    """Test CheckoutFormResultResponse wrapper class."""
+
+    def test_successful_response(self):
+        """Test successful checkout form result response."""
+        from django_iyzico.client import CheckoutFormResultResponse
+
+        response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+            "paymentId": "12345678",
+            "paymentStatus": "SUCCESS",
+            "fraudStatus": 1,
+            "basketId": "B123",
+            "conversationId": "test-conv-123",
+            "price": "100.00",
+            "paidPrice": "100.00",
+            "currency": "TRY",
+        }
+
+        response = CheckoutFormResultResponse(response_data)
+
+        assert response.is_successful() is True
+        assert response.token == "checkout-token-abc123"
+        assert response.payment_id == "12345678"
+        assert response.payment_status == "SUCCESS"
+        assert response.fraud_status == 1
+        assert response.basket_id == "B123"
+        assert response.price == Decimal("100.00")
+
+    def test_failed_payment_status(self):
+        """Test checkout form result with failed payment status."""
+        from django_iyzico.client import CheckoutFormResultResponse
+
+        response_data = {
+            "status": "success",
+            "paymentStatus": "FAILURE",
+            "errorCode": "5006",
+            "errorMessage": "Card declined",
+        }
+
+        response = CheckoutFormResultResponse(response_data)
+
+        # API call succeeded but payment failed
+        assert response.is_successful() is True
+        assert response.payment_status == "FAILURE"
+
+    def test_str_representation(self):
+        """Test string representation."""
+        from django_iyzico.client import CheckoutFormResultResponse
+
+        response_data = {
+            "status": "success",
+            "paymentId": "123",
+            "paymentStatus": "SUCCESS",
+        }
+
+        response = CheckoutFormResultResponse(response_data)
+        str_repr = str(response)
+
+        assert "123" in str_repr
+        assert "SUCCESS" in str_repr
+
+
+class TestCreateCheckoutForm:
+    """Test create_checkout_form() method."""
+
+    @pytest.fixture
+    def mock_checkout_form_initialize_class(self):
+        """Mock the iyzipay.CheckoutFormInitialize class."""
+        with patch("django_iyzico.client.iyzipay.CheckoutFormInitialize") as mock:
+            yield mock
+
+    @pytest.fixture
+    def sample_order_data(self):
+        """Sample order data for checkout form."""
+        return {
+            "conversationId": "test-conv-123",
+            "price": "100.00",
+            "paidPrice": "100.00",
+            "currency": "TRY",
+            "basketId": "B123",
+        }
+
+    @pytest.fixture
+    def sample_buyer(self):
+        """Sample buyer data."""
+        return {
+            "id": "BY123",
+            "name": "John",
+            "surname": "Doe",
+            "email": "john@example.com",
+            "identityNumber": "11111111111",
+            "registrationAddress": "Test Address",
+            "city": "Istanbul",
+            "country": "Turkey",
+            "gsmNumber": "+905551234567",
+        }
+
+    @pytest.fixture
+    def sample_billing_address(self):
+        """Sample billing address."""
+        return {
+            "address": "Test Address 123",
+            "city": "Istanbul",
+            "country": "Turkey",
+            "zipCode": "34000",
+        }
+
+    def test_successful_checkout_form_creation(
+        self,
+        mock_checkout_form_initialize_class,
+        sample_order_data,
+        sample_buyer,
+        sample_billing_address,
+    ):
+        """Test successful checkout form creation."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+            "checkoutFormContent": "<div>Checkout Form</div>",
+            "paymentPageUrl": "https://checkout.iyzico.com/payment/abc123",
+            "tokenExpireTime": 1800,
+            "conversationId": "test-conv-123",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_checkout_form_initialize_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        response = client.create_checkout_form(
+            order_data=sample_order_data,
+            buyer=sample_buyer,
+            billing_address=sample_billing_address,
+            callback_url="https://example.com/callback/",
+        )
+
+        assert response.is_successful() is True
+        assert response.token == "checkout-token-abc123"
+        assert response.checkout_form_content == "<div>Checkout Form</div>"
+        assert response.payment_page_url == "https://checkout.iyzico.com/payment/abc123"
+
+        mock_checkout_form_initialize_class.assert_called_once()
+        mock_instance.create.assert_called_once()
+
+    def test_failed_checkout_form_raises_payment_error(
+        self,
+        mock_checkout_form_initialize_class,
+        sample_order_data,
+        sample_buyer,
+        sample_billing_address,
+    ):
+        """Test that failed checkout form creation raises PaymentError."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "failure",
+            "errorCode": "1000",
+            "errorMessage": "General error",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_checkout_form_initialize_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(PaymentError) as exc_info:
+            client.create_checkout_form(
+                order_data=sample_order_data,
+                buyer=sample_buyer,
+                billing_address=sample_billing_address,
+                callback_url="https://example.com/callback/",
+            )
+
+        assert "General error" in str(exc_info.value)
+
+    def test_uses_billing_address_as_shipping_when_not_provided(
+        self,
+        mock_checkout_form_initialize_class,
+        sample_order_data,
+        sample_buyer,
+        sample_billing_address,
+    ):
+        """Test shipping address defaults to billing address when not provided."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_checkout_form_initialize_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        client.create_checkout_form(
+            order_data=sample_order_data,
+            buyer=sample_buyer,
+            billing_address=sample_billing_address,
+            callback_url="https://example.com/callback/",
+            # shipping_address not provided
+        )
+
+        # Verify shipping address equals billing address
+        call_args = mock_instance.create.call_args[0][0]
+        assert call_args["shippingAddress"] == call_args["billingAddress"]
+
+    def test_custom_installments(
+        self,
+        mock_checkout_form_initialize_class,
+        sample_order_data,
+        sample_buyer,
+        sample_billing_address,
+    ):
+        """Test custom installment options."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+        }
+        mock_instance.create.return_value = mock_response_data
+        mock_checkout_form_initialize_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        client.create_checkout_form(
+            order_data=sample_order_data,
+            buyer=sample_buyer,
+            billing_address=sample_billing_address,
+            callback_url="https://example.com/callback/",
+            enabled_installments=[1, 3, 6],
+        )
+
+        call_args = mock_instance.create.call_args[0][0]
+        assert call_args["enabledInstallments"] == ["1", "3", "6"]
+
+    def test_sdk_exception_raises_payment_error(
+        self,
+        mock_checkout_form_initialize_class,
+        sample_order_data,
+        sample_buyer,
+        sample_billing_address,
+    ):
+        """Test SDK exception is wrapped in PaymentError."""
+        mock_instance = Mock()
+        mock_instance.create.side_effect = Exception("SDK error")
+        mock_checkout_form_initialize_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(PaymentError) as exc_info:
+            client.create_checkout_form(
+                order_data=sample_order_data,
+                buyer=sample_buyer,
+                billing_address=sample_billing_address,
+                callback_url="https://example.com/callback/",
+            )
+
+        assert "SDK error" in str(exc_info.value)
+
+
+class TestRetrieveCheckoutForm:
+    """Test retrieve_checkout_form() method."""
+
+    @pytest.fixture
+    def mock_checkout_form_class(self):
+        """Mock the iyzipay.CheckoutForm class."""
+        with patch("django_iyzico.client.iyzipay.CheckoutForm") as mock:
+            yield mock
+
+    def test_successful_retrieval(self, mock_checkout_form_class):
+        """Test successful checkout form result retrieval."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "token": "checkout-token-abc123",
+            "paymentId": "12345678",
+            "paymentStatus": "SUCCESS",
+            "fraudStatus": 1,
+            "basketId": "B123",
+            "conversationId": "test-conv-123",
+            "price": "100.00",
+            "paidPrice": "100.00",
+        }
+        mock_instance.retrieve.return_value = mock_response_data
+        mock_checkout_form_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        response = client.retrieve_checkout_form("checkout-token-abc123")
+
+        assert response.is_successful() is True
+        assert response.payment_id == "12345678"
+        assert response.payment_status == "SUCCESS"
+
+        mock_checkout_form_class.assert_called_once()
+        mock_instance.retrieve.assert_called_once()
+
+    def test_failed_payment_retrieval(self, mock_checkout_form_class):
+        """Test checkout form retrieval with failed payment."""
+        mock_instance = Mock()
+        mock_response_data = {
+            "status": "success",
+            "paymentStatus": "FAILURE",
+            "errorCode": "5006",
+            "errorMessage": "Card declined",
+        }
+        mock_instance.retrieve.return_value = mock_response_data
+        mock_checkout_form_class.return_value = mock_instance
+
+        client = IyzicoClient()
+        response = client.retrieve_checkout_form("checkout-token-abc123")
+
+        # API call succeeded but payment failed
+        assert response.is_successful() is True
+        assert response.payment_status == "FAILURE"
+
+    def test_missing_token_raises_validation_error(self):
+        """Test missing token raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.retrieve_checkout_form("")
+
+        assert "token" in str(exc_info.value).lower()
+
+    def test_none_token_raises_validation_error(self):
+        """Test None token raises ValidationError."""
+        client = IyzicoClient()
+
+        with pytest.raises(ValidationError):
+            client.retrieve_checkout_form(None)
+
+    def test_sdk_exception_raises_payment_error(self, mock_checkout_form_class):
+        """Test SDK exception is wrapped in PaymentError."""
+        mock_instance = Mock()
+        mock_instance.retrieve.side_effect = Exception("SDK error")
+        mock_checkout_form_class.return_value = mock_instance
+
+        client = IyzicoClient()
+
+        with pytest.raises(PaymentError) as exc_info:
+            client.retrieve_checkout_form("checkout-token-abc123")
+
+        assert "SDK error" in str(exc_info.value)

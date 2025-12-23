@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-12-23
+
+### Added
+- **Checkout Form Support**
+  - `CheckoutFormResponse` wrapper class for checkout form initialization responses
+  - `CheckoutFormResultResponse` wrapper class for checkout form result retrieval
+  - `create_checkout_form()` method for creating hosted payment pages (PCI DSS compliant)
+  - `retrieve_checkout_form()` method for retrieving payment results after callback
+  - Support for custom installment options in checkout forms
+  - Automatic shipping address defaulting to billing address
+
+- **Improved Package Exports**
+  - Direct imports for client and response classes from package root
+  - `IyzicoClient`, `BaseIyzicoResponse`, `PaymentResponse`, `ThreeDSResponse`, `RefundResponse` now directly importable
+  - Removed lazy `_get_client()` function in favor of direct imports
+
+### Fixed
+- Fixed misleading test name for shipping/billing address default behavior
+
+### Technical Details
+- **Test Count**: 771 tests passing
+- **Coverage**: 81% overall, 95% for client module
+
 ## [0.2.1] - 2025-12-19
 
 ### Changed

@@ -197,6 +197,84 @@ class RefundResponse(BaseIyzicoResponse):
         return f"RefundResponse({self.raw_response})"
 
 
+class CheckoutFormResponse(BaseIyzicoResponse):
+    """
+    Wrapper for Iyzico Checkout Form initialization response.
+
+    Used when creating a checkout form that redirects users to iyzico's
+    hosted payment page.
+    """
+
+    @property
+    def token(self) -> Optional[str]:
+        """Get checkout form token."""
+        return self.raw_response.get("token")
+
+    @property
+    def checkout_form_content(self) -> Optional[str]:
+        """Get checkout form HTML/JavaScript content for embedding."""
+        return self.raw_response.get("checkoutFormContent")
+
+    @property
+    def payment_page_url(self) -> Optional[str]:
+        """Get direct URL to iyzico payment page."""
+        return self.raw_response.get("paymentPageUrl")
+
+    @property
+    def token_expire_time(self) -> Optional[int]:
+        """Get token expiration time in seconds."""
+        return self.raw_response.get("tokenExpireTime")
+
+    def __str__(self) -> str:
+        """String representation."""
+        return f"CheckoutFormResponse(status={self.status}, token={self.token[:8] if self.token else None}...)"
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"CheckoutFormResponse({self.raw_response})"
+
+
+class CheckoutFormResultResponse(PaymentResponse):
+    """
+    Wrapper for Iyzico Checkout Form result retrieval response.
+
+    Extends PaymentResponse with checkout-specific fields.
+    Used after the user completes payment on iyzico's hosted page.
+    """
+
+    @property
+    def token(self) -> Optional[str]:
+        """Get checkout form token."""
+        return self.raw_response.get("token")
+
+    @property
+    def payment_status(self) -> Optional[str]:
+        """Get payment status from checkout form."""
+        return self.raw_response.get("paymentStatus")
+
+    @property
+    def fraud_status(self) -> Optional[int]:
+        """Get fraud check status."""
+        return self.raw_response.get("fraudStatus")
+
+    @property
+    def basket_id(self) -> Optional[str]:
+        """Get basket ID."""
+        return self.raw_response.get("basketId")
+
+    def __str__(self) -> str:
+        """String representation."""
+        return (
+            f"CheckoutFormResultResponse(status={self.status}, "
+            f"payment_id={self.payment_id}, "
+            f"payment_status={self.payment_status})"
+        )
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"CheckoutFormResultResponse({self.raw_response})"
+
+
 class IyzicoClient:
     """
     Main client for interacting with Iyzico API.
@@ -536,6 +614,212 @@ class IyzicoClient:
             raise ThreeDSecureError(
                 f"3D Secure payment completion failed: {str(e)}",
                 error_code="THREEDS_COMPLETION_ERROR",
+            ) from e
+
+    def create_checkout_form(
+        self,
+        order_data: Dict[str, Any],
+        buyer: Dict[str, Any],
+        billing_address: Dict[str, Any],
+        shipping_address: Optional[Dict[str, Any]] = None,
+        basket_items: Optional[List[Dict[str, Any]]] = None,
+        callback_url: Optional[str] = None,
+        enabled_installments: Optional[List[int]] = None,
+    ) -> CheckoutFormResponse:
+        """
+        Create a checkout form for redirect-based payment.
+
+        This creates a hosted payment page on iyzico where users enter their
+        card details. No card data touches your server (PCI DSS compliant).
+
+        Args:
+            order_data: Order information (price, paidPrice, currency, basketId, etc.)
+            buyer: Buyer information (name, email, address, etc.)
+            billing_address: Billing address information
+            shipping_address: Shipping address (optional, defaults to billing)
+            basket_items: Basket items (optional)
+            callback_url: URL where iyzico redirects after payment
+            enabled_installments: List of installment options (e.g., [1, 2, 3, 6, 9, 12])
+
+        Returns:
+            CheckoutFormResponse with token and checkout form content/URL
+
+        Raises:
+            ValidationError: If input data is invalid
+            PaymentError: If checkout form creation fails
+
+        Example:
+            >>> client = IyzicoClient()
+            >>> response = client.create_checkout_form(
+            ...     order_data={
+            ...         'price': '100.00',
+            ...         'paidPrice': '100.00',
+            ...         'basketId': 'order-123',
+            ...     },
+            ...     buyer={
+            ...         'id': 'user-1',
+            ...         'name': 'John',
+            ...         'surname': 'Doe',
+            ...         'email': 'john@example.com',
+            ...         'identityNumber': '11111111111',
+            ...         'registrationAddress': 'Address',
+            ...         'city': 'Istanbul',
+            ...         'country': 'Turkey',
+            ...         'ip': '192.168.1.1',
+            ...     },
+            ...     billing_address={...},
+            ...     callback_url='https://mysite.com/payment/callback/',
+            ... )
+            >>> if response.is_successful():
+            ...     # Option 1: Embed checkout form
+            ...     html = response.checkout_form_content
+            ...     # Option 2: Redirect to payment page
+            ...     redirect_url = response.payment_page_url
+        """
+        # Validate order data
+        validate_payment_data(order_data)
+
+        # Get callback URL
+        if callback_url is None:
+            callback_url = self.settings.callback_url
+
+        # Format addresses
+        if shipping_address is None:
+            shipping_address = billing_address
+
+        buyer_full_name = f"{buyer.get('name', '')} {buyer.get('surname', '')}".strip()
+
+        # Default installments if not specified
+        if enabled_installments is None:
+            enabled_installments = [1, 2, 3, 6, 9, 12]
+
+        # Build request data
+        request_data = {
+            "locale": order_data.get("locale", self.settings.locale),
+            "conversationId": order_data.get("conversationId"),
+            "price": format_price(order_data["price"]),
+            "paidPrice": format_price(order_data["paidPrice"]),
+            "currency": order_data.get("currency", self.settings.currency),
+            "basketId": order_data.get("basketId"),
+            "paymentGroup": order_data.get("paymentGroup", "PRODUCT"),
+            "callbackUrl": callback_url,
+            "enabledInstallments": [str(i) for i in enabled_installments],
+            "buyer": format_buyer_data(buyer),
+            "shippingAddress": format_address_data(shipping_address, buyer_full_name),
+            "billingAddress": format_address_data(billing_address, buyer_full_name),
+        }
+
+        # Add basket items if provided
+        if basket_items:
+            request_data["basketItems"] = basket_items
+
+        # Log request
+        logger.info(
+            f"Creating checkout form - conversation_id={request_data.get('conversationId')}, "
+            f"amount={request_data['price']} {request_data['currency']}"
+        )
+        logger.debug(f"Checkout form request: {sanitize_log_data(request_data)}")
+
+        try:
+            # Call Iyzico Checkout Form Initialize API
+            checkout_form = iyzipay.CheckoutFormInitialize()
+            raw_response = checkout_form.create(request_data, self.get_options())
+
+            # Parse and wrap response
+            response = CheckoutFormResponse(raw_response)
+
+            # Log response
+            if response.is_successful():
+                logger.info(
+                    f"Checkout form created - token={response.token[:8] if response.token else None}..., "
+                    f"conversation_id={response.conversation_id}"
+                )
+            else:
+                logger.warning(
+                    f"Checkout form creation failed - error_code={response.error_code}, "
+                    f"error_message={response.error_message}"
+                )
+
+                raise PaymentError(
+                    response.error_message or "Checkout form creation failed",
+                    error_code=response.error_code,
+                    error_group=response.error_group,
+                )
+
+            return response
+
+        except PaymentError:
+            raise
+        except Exception as e:
+            logger.error(f"Checkout form creation failed: {str(e)}", exc_info=True)
+            raise PaymentError(
+                f"Checkout form creation failed: {str(e)}",
+                error_code="CHECKOUT_FORM_ERROR",
+            ) from e
+
+    def retrieve_checkout_form(self, token: str) -> CheckoutFormResultResponse:
+        """
+        Retrieve checkout form result after user completes payment.
+
+        This is called in the callback handler after the user completes
+        payment on iyzico's hosted page.
+
+        Args:
+            token: Checkout form token from callback
+
+        Returns:
+            CheckoutFormResultResponse with payment result
+
+        Raises:
+            PaymentError: If retrieval fails
+            ValidationError: If token is missing
+
+        Example:
+            >>> client = IyzicoClient()
+            >>> # In callback view:
+            >>> token = request.POST.get('token')
+            >>> response = client.retrieve_checkout_form(token)
+            >>> if response.is_successful() and response.payment_status == 'SUCCESS':
+            ...     # Payment completed successfully
+            ...     payment_id = response.payment_id
+        """
+        if not token:
+            raise ValidationError(
+                "Checkout form token is required",
+                error_code="MISSING_TOKEN",
+            )
+
+        logger.info(f"Retrieving checkout form result - token_prefix={token[:8]}...")
+
+        try:
+            # Call Iyzico Checkout Form Retrieve API
+            request_data = {"token": token}
+            checkout_form = iyzipay.CheckoutForm()
+            raw_response = checkout_form.retrieve(request_data, self.get_options())
+
+            # Parse and wrap response
+            response = CheckoutFormResultResponse(raw_response)
+
+            # Log response
+            if response.is_successful():
+                logger.info(
+                    f"Checkout form result retrieved - payment_id={response.payment_id}, "
+                    f"payment_status={response.payment_status}, "
+                    f"conversation_id={response.conversation_id}"
+                )
+            else:
+                logger.warning(
+                    f"Checkout form retrieval failed - error_code={response.error_code}, "
+                    f"error_message={response.error_message}"
+                )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Checkout form retrieval failed: {str(e)}", exc_info=True)
+            raise PaymentError(
+                f"Checkout form retrieval failed: {str(e)}",
+                error_code="CHECKOUT_FORM_RETRIEVE_ERROR",
             ) from e
 
     def refund_payment(

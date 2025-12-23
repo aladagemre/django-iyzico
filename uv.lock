@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [[package]]
@@ -335,7 +335,7 @@ wheels = [
 
 [[package]]
 name = "django-iyzico"
-version = "0.2.0"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -364,6 +364,14 @@ drf = [
     { name = "djangorestframework" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "celery" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-django" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0" },
@@ -384,6 +392,14 @@ requires-dist = [
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=1.0" },
 ]
 provides-extras = ["dev", "drf", "docs"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "celery", specifier = ">=5.0" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "pytest-django", specifier = ">=4.11.1" },
+]
 
 [[package]]
 name = "django-stubs"
