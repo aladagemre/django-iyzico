@@ -376,7 +376,7 @@ dev = [
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=22.0" },
     { name = "celery", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "django", specifier = ">=6" },
+    { name = "django", specifier = ">=4.2" },
     { name = "django-stubs", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "djangorestframework", marker = "extra == 'drf'", specifier = ">=3.12" },
     { name = "djangorestframework", extras = ["dev"], marker = "extra == 'dev'", specifier = ">=3.15.2" },
